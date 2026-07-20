@@ -3,7 +3,19 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getBunkers, createBunker, updateBunker, deleteBunker } from '../api/client';
 import type { Bunker } from '../types';
-import { Plus, Pencil, Trash2, MapPin, ChevronLeft, Network } from 'lucide-react';
+import { Plus, Pencil, Trash2, MapPin, ChevronLeft, Network, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+
+type SortKey = 'name' | 'unit_name' | 'location' | 'description' | 'created_at';
+type SortDir = 'asc' | 'desc';
+
+function sortBunkers(list: Bunker[], key: SortKey, dir: SortDir): Bunker[] {
+  return [...list].sort((a, b) => {
+    const av = (a[key] ?? '') as string;
+    const bv = (b[key] ?? '') as string;
+    const cmp = av.localeCompare(bv, 'he');
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
 
 interface BunkerForm {
   name: string;
@@ -20,6 +32,29 @@ export default function BunkersList() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<BunkerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronsUpDown size={13} className="text-gray-400" />;
+    return sortDir === 'asc'
+      ? <ChevronUp size={13} className="text-blue-500" />
+      : <ChevronDown size={13} className="text-blue-500" />;
+  };
+
+  const Th = ({ col, children }: { col: SortKey; children: React.ReactNode }) => (
+    <th
+      className="table-th cursor-pointer select-none hover:bg-gray-100 transition-colors"
+      onClick={() => handleSort(col)}
+    >
+      <span className="flex items-center gap-1">{children}<SortIcon col={col} /></span>
+    </th>
+  );
 
   const load = async () => {
     try {
@@ -154,16 +189,16 @@ export default function BunkersList() {
             <table className="w-full">
             <thead>
               <tr>
-                <th className="table-th">שם הבונקר</th>
-                <th className="table-th">מסגרת</th>
-                <th className="table-th">מיקום</th>
-                <th className="table-th">תיאור</th>
-                <th className="table-th">נוצר</th>
+                <Th col="name">שם הבונקר</Th>
+                <Th col="unit_name">מסגרת</Th>
+                <Th col="location">מיקום</Th>
+                <Th col="description">תיאור</Th>
+                <Th col="created_at">נוצר</Th>
                 <th className="table-th"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {bunkers.map(b => (
+              {sortBunkers(bunkers, sortKey, sortDir).map(b => (
                 <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                   <td className="table-td font-medium">
                     <Link to={`/bunkers/${b.id}`} className="text-blue-600 hover:underline flex items-center gap-1">
