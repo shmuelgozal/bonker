@@ -3,7 +3,8 @@
  * Usage: npx ts-node src/migrate-to-mongodb.ts
  */
 
-import Database from 'better-sqlite3';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite');
 import mongoose from 'mongoose';
 import path from 'path';
 import * as models from './db/mongo';
@@ -20,12 +21,12 @@ async function migrate() {
   try {
     // Connect to MongoDB
     console.log('🔗 Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI as string);
     console.log('✅ Connected to MongoDB');
 
     // Open SQLite database
     console.log('📖 Opening SQLite database...');
-    const db = new Database(DB_PATH);
+    const db = new DatabaseSync(DB_PATH);
 
     // Migrate Units
     console.log('📤 Migrating Units...');
@@ -36,10 +37,10 @@ async function migrate() {
         {
           _id: unit.id,
           name: unit.name,
-          parentId: unit.parentId,
-          level: unit.level,
-          createdAt: unit.createdAt ? new Date(unit.createdAt) : new Date(),
-          updatedAt: unit.updatedAt ? new Date(unit.updatedAt) : new Date(),
+          parent_unit_id: unit.parent_unit_id,
+          type: unit.type || 'battalion',
+          description: unit.description,
+          created_at: unit.created_at ? new Date(unit.created_at) : new Date(),
         },
         { upsert: true }
       );
@@ -55,11 +56,9 @@ async function migrate() {
         {
           _id: bunker.id,
           name: bunker.name,
-          unitId: bunker.unitId,
           location: bunker.location,
-          capacity: bunker.capacity,
-          createdAt: bunker.createdAt ? new Date(bunker.createdAt) : new Date(),
-          updatedAt: bunker.updatedAt ? new Date(bunker.updatedAt) : new Date(),
+          description: bunker.description,
+          created_at: bunker.created_at ? new Date(bunker.created_at) : new Date(),
         },
         { upsert: true }
       );
@@ -68,17 +67,16 @@ async function migrate() {
 
     // Migrate Ammo Types
     console.log('📤 Migrating Ammo Types...');
-    const ammoTypes = db.prepare('SELECT * FROM ammoTypes').all() as any[];
+    const ammoTypes = db.prepare('SELECT * FROM ammo_types').all() as any[];
     for (const type of ammoTypes) {
       await models.AmmoType.updateOne(
         { _id: type.id },
         {
           _id: type.id,
           name: type.name,
-          category: type.category,
-          caliber: type.caliber,
-          createdAt: type.createdAt ? new Date(type.createdAt) : new Date(),
-          updatedAt: type.updatedAt ? new Date(type.updatedAt) : new Date(),
+          category: type.category || 'תחמושת',
+          caliber: type.unit || 'יח',
+          created_at: type.created_at ? new Date(type.created_at) : new Date(),
         },
         { upsert: true }
       );
@@ -93,11 +91,11 @@ async function migrate() {
         { _id: inv.id },
         {
           _id: inv.id,
-          bunkerId: inv.bunkerId,
-          ammoTypeId: inv.ammoTypeId,
+          bunker_id: inv.bunker_id,
+          ammo_type_id: inv.ammo_type_id,
           quantity: inv.quantity,
           unit: inv.unit,
-          lastUpdated: inv.lastUpdated ? new Date(inv.lastUpdated) : new Date(),
+          lastUpdated: inv.last_updated ? new Date(inv.last_updated) : new Date(),
         },
         { upsert: true }
       );
@@ -115,7 +113,7 @@ async function migrate() {
           date: issue.date ? new Date(issue.date) : new Date(),
           recipient: issue.recipient,
           note: issue.note,
-          createdAt: issue.createdAt ? new Date(issue.createdAt) : new Date(),
+          created_at: issue.created_at ? new Date(issue.created_at) : new Date(),
         },
         { upsert: true }
       );
@@ -124,18 +122,16 @@ async function migrate() {
 
     // Migrate Bunker Standards
     console.log('📤 Migrating Bunker Standards...');
-    const standards = db.prepare('SELECT * FROM bunkerStandards').all() as any[];
+    const standards = db.prepare('SELECT * FROM bunker_standards').all() as any[];
     for (const std of standards) {
       await models.BunkerStandard.updateOne(
         { _id: std.id },
         {
           _id: std.id,
-          bunkerId: std.bunkerId,
-          ammoTypeId: std.ammoTypeId,
-          standardQuantity: std.standardQuantity,
-          unit: std.unit,
-          createdAt: std.createdAt ? new Date(std.createdAt) : new Date(),
-          updatedAt: std.updatedAt ? new Date(std.updatedAt) : new Date(),
+          bunker_id: std.bunker_id,
+          ammo_type_id: std.ammo_type_id,
+          required_qty: std.required_qty,
+          created_at: std.created_at ? new Date(std.created_at) : new Date(),
         },
         { upsert: true }
       );
