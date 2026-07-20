@@ -67,10 +67,10 @@ export default function BunkerIssuanceNew() {
     let batch_details: BatchDetail[] = [];
 
     if (trackingType === 'batch') {
-      available_batches = await getBatches(bunkerId, ammoTypeId);
+      available_batches = await getBatches(bunkerId, ammoTypeId!);
       batch_details = available_batches.map(b => ({ batch_number: b.batch_number, available: b.quantity, quantity: 0 }));
     } else if (trackingType === 'serial') {
-      available_serials = await getSerials(bunkerId, ammoTypeId, 'in_stock');
+      available_serials = await getSerials(bunkerId, ammoTypeId!, 'in_stock');
     }
 
     setRows(prev => prev.map((r, i) => i === rowIdx ? {
@@ -148,7 +148,7 @@ export default function BunkerIssuanceNew() {
       formData.append('items', JSON.stringify(items));
       if (linkedBunkerId) formData.append('linked_bunker_id', linkedBunkerId.toString());
       if (imageFile) formData.append('form_image', imageFile);
-      await createIssuance(bunkerId, formData);
+      await createIssuance(bunkerId!, formData);
       toast.success('הנפקה נשמרה ומלאי עודכן');
       navigate(`/bunkers/${bunkerId}`);
     } catch { toast.error('שגיאה בשמירת ההנפקה'); }
@@ -182,7 +182,7 @@ export default function BunkerIssuanceNew() {
             <div className="col-span-2"><label className="label">הערות</label><input className="input" value={notes} onChange={e => setNotes(e.target.value)} /></div>
             <div className="col-span-2">
               <label className="label">קישור להנפקה לבונקר אחר (אופציונלי)</label>
-              <select className="input" value={linkedBunkerId || ''} onChange={e => setLinkedBunkerId(e.target.value ? Number(e.target.value) : null)}>
+              <select className="input" value={linkedBunkerId || ''} onChange={e => setLinkedBunkerId(e.target.value || null)}>
                 <option value="">-- ללא קישור (הנפקה רגילה) --</option>
                 {allBunkers.filter(b => b.id !== bunkerId).map(b => (
                   <option key={b.id} value={b.id}>{b.name}</option>
@@ -216,9 +216,9 @@ export default function BunkerIssuanceNew() {
                         </optgroup>
                       ))}
                     </select>
-                    {row.ammo_type_id > 0 && <div className="mt-1"><TrackingBadge type={row.tracking_type} /></div>}
+                    {row.ammo_type_id && <div className="mt-1"><TrackingBadge type={row.tracking_type} /></div>}
                   </div>
-                  {row.tracking_type === 'qty' && row.ammo_type_id > 0 && (
+                  {row.tracking_type === 'qty' && row.ammo_type_id && (
                     <input type="number" min="1" className="input w-28 text-center"
                       value={row.quantity} onChange={e => setRows(prev => prev.map((r, idx) => idx === i ? { ...r, quantity: Number(e.target.value) } : r))} />
                   )}
@@ -244,12 +244,12 @@ export default function BunkerIssuanceNew() {
                     </p>
                   </div>
                 )}
-                {row.tracking_type === 'batch' && row.batch_details.length === 0 && row.ammo_type_id > 0 && (
+                  {row.tracking_type === 'batch' && row.batch_details.length === 0 && row.ammo_type_id && (
                   <p className="text-xs text-orange-500 mt-1">אין סדרות במלאי לפריט זה</p>
                 )}
 
                 {/* Serial picker */}
-                {row.tracking_type === 'serial' && row.ammo_type_id > 0 && (
+                {row.tracking_type === 'serial' && row.ammo_type_id && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-medium text-gray-500">בחר מספרים סידוריים להנפקה:</p>

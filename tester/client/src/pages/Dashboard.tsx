@@ -118,7 +118,7 @@ export default function Dashboard() {
 
   // Flatten units hierarchy for display in dropdown (only battalion and company levels)
   const flattenedUnits = (unitsList: UnitWithChildren[], level = 0): Array<{ id: string; name: string; type: string; level: number }> => {
-    const result: Array<{ id: number; name: string; type: string; level: number }> = [];
+    const result: Array<{ id: string; name: string; type: string; level: number }> = [];
     for (const unit of unitsList) {
       // Only include battalion and company types, skip storage_location
       if (unit.type !== 'storage_location') {

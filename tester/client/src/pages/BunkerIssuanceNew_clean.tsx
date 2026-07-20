@@ -63,10 +63,10 @@ export default function BunkerIssuanceNew() {
     let batch_details: BatchDetail[] = [];
 
     if (trackingType === 'batch') {
-      available_batches = await getBatches(bunkerId, ammoTypeId);
+      available_batches = await getBatches(bunkerId, ammoTypeId!);
       batch_details = available_batches.map(b => ({ batch_number: b.batch_number, available: b.quantity, quantity: 0 }));
     } else if (trackingType === 'serial') {
-      available_serials = await getSerials(bunkerId, ammoTypeId, 'in_stock');
+      available_serials = await getSerials(bunkerId, ammoTypeId!, 'in_stock');
     }
 
     setRows(prev => prev.map((r, i) => i === rowIdx ? {
@@ -225,12 +225,12 @@ export default function BunkerIssuanceNew() {
                     </p>
                   </div>
                 )}
-                {row.tracking_type === 'batch' && row.batch_details.length === 0 && row.ammo_type_id > 0 && (
+                {row.tracking_type === 'batch' && row.batch_details.length === 0 && row.ammo_type_id && (
                   <p className="text-xs text-orange-500 mt-1">אין סדרות במלאי לפריט זה</p>
                 )}
 
                 {/* Serial picker */}
-                {row.tracking_type === 'serial' && row.ammo_type_id > 0 && (
+                {row.tracking_type === 'serial' && row.ammo_type_id && (
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-medium text-gray-500">בחר מספרים סידוריים להנפקה:</p>

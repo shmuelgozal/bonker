@@ -47,11 +47,11 @@ export default function BunkerStandard() {
       const items = Object.entries(standardValues)
         .filter(([, v]) => v !== '' && Number(v) > 0)
         .map(([ammo_type_id, required_qty]) => ({
-          ammo_type_id: Number(ammo_type_id),
+          ammo_type_id,
           required_qty: Number(required_qty),
         }));
 
-      await updateStandard(bunkerId, items);
+      await updateStandard(bunkerId!, items);
       toast.success('תו תקן עודכן');
       await loadAll();
       setActiveTab('gaps');

@@ -51,7 +51,7 @@ export default function BunkerInventoryAdd() {
       if (trackingType === 'qty') {
         if (!quantityDelta) { toast.error('הזן כמות'); return; }
         await addInventoryEntry(bunkerId, {
-          ammo_type_id: ammoTypeId,
+          ammo_type_id: ammoTypeId!,
           quantity_delta: Number(quantityDelta),
           entry_type: entryType, notes,
         });
