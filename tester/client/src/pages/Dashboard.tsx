@@ -10,11 +10,11 @@ interface BunkerCard {
 }
 
 interface UnitInventorySummary {
-  unit_id: number;
+  unit_id: string;
   unit_name: string;
   bunker_count: number;
   inventory: Array<{
-    ammo_type_id: number;
+    ammo_type_id: string;
     ammo_name: string;
     unit: string;
     category: string;
@@ -25,7 +25,7 @@ interface UnitInventorySummary {
 export default function Dashboard() {
   const [cards, setCards] = useState<BunkerCard[]>([]);
   const [units, setUnits] = useState<UnitWithChildren[]>([]);
-  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [unitInventory, setUnitInventory] = useState<UnitInventorySummary | null>(null);
   const [unitGaps, setUnitGaps] = useState<GapsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +91,7 @@ export default function Dashboard() {
   const totalDeficit = cards.reduce((acc, c) => acc + (c.gaps?.summary.deficit ?? 0), 0);
 
   // Find selected unit for display
-  const findUnit = (units: UnitWithChildren[], id: number): UnitWithChildren | undefined => {
+  const findUnit = (units: UnitWithChildren[], id: string): UnitWithChildren | undefined => {
     for (const unit of units) {
       if (unit.id === id) return unit;
       const found = findUnit(unit.children, id);
@@ -101,7 +101,7 @@ export default function Dashboard() {
   };
 
   // Get all unit IDs in a unit's subtree (recursively)
-  const getAllUnitIds = (unit: UnitWithChildren): number[] => {
+  const getAllUnitIds = (unit: UnitWithChildren): string[] => {
     const ids = [unit.id];
     for (const child of unit.children) {
       ids.push(...getAllUnitIds(child));
@@ -117,7 +117,7 @@ export default function Dashboard() {
     : cards;
 
   // Flatten units hierarchy for display in dropdown (only battalion and company levels)
-  const flattenedUnits = (unitsList: UnitWithChildren[], level = 0): Array<{ id: number; name: string; type: string; level: number }> => {
+  const flattenedUnits = (unitsList: UnitWithChildren[], level = 0): Array<{ id: string; name: string; type: string; level: number }> => {
     const result: Array<{ id: number; name: string; type: string; level: number }> = [];
     for (const unit of unitsList) {
       // Only include battalion and company types, skip storage_location

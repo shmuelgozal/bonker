@@ -8,25 +8,25 @@ import { ArrowRight, Save, CheckCircle } from 'lucide-react';
 export default function BunkerCountNew() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const bunkerId = Number(id);
+  const bunkerId = id;
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
-  const [currentInventory, setCurrentInventory] = useState<Record<number, number>>({});
-  const [countValues, setCountValues] = useState<Record<number, string>>({});
+  const [currentInventory, setCurrentInventory] = useState<Record<string, number>>({});
+  const [countValues, setCountValues] = useState<Record<string, string>>({});
   const [countDate, setCountDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId)]).then(([b, types, inv]) => {
+    Promise.all([getBunker(bunkerId!), getAmmoTypes(), getInventory(bunkerId!)]).then(([b, types, inv]) => {
       setBunker(b);
       setAmmoTypes(types);
-      const invMap: Record<number, number> = {};
+      const invMap: Record<string, number> = {};
       inv.forEach((i: InventoryItem) => { invMap[i.ammo_type_id] = i.quantity; });
       setCurrentInventory(invMap);
       // Pre-fill with current values
-      const defaults: Record<number, string> = {};
+      const defaults: Record<string, string> = {};
       types.forEach(t => { defaults[t.id] = String(invMap[t.id] ?? ''); });
       setCountValues(defaults);
     });
@@ -44,12 +44,12 @@ export default function BunkerCountNew() {
         return;
       }
 
-      const count = await createCount(bunkerId, { count_date: countDate, notes, items });
+      const count = await createCount(bunkerId!, { count_date: countDate, notes, items });
       if (syncInventory) {
-        await updateCount(bunkerId, count.id, { status: 'complete', sync_inventory: true });
+        await updateCount(bunkerId!, count.id, { status: 'complete', sync_inventory: true });
         toast.success('ספירה הושלמה ומלאי עודכן');
       } else {
-        await updateCount(bunkerId, count.id, { status: 'complete' });
+        await updateCount(bunkerId!, count.id, { status: 'complete' });
         toast.success('ספירה נשמרה');
       }
       navigate(`/bunkers/${bunkerId}`);

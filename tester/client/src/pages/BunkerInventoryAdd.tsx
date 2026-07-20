@@ -11,7 +11,7 @@ interface BatchRow { batch_number: string; quantity: number }
 export default function BunkerInventoryAdd() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const bunkerId = Number(id);
+  const bunkerId = id;
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
@@ -32,14 +32,14 @@ export default function BunkerInventoryAdd() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([getBunker(bunkerId), getAmmoTypes()]).then(([b, types]) => {
+    Promise.all([getBunker(bunkerId!), getAmmoTypes()]).then(([b, types]) => {
       setBunker(b); setAmmoTypes(types);
     });
   }, [bunkerId]);
 
   const handleTypeChange = (val: string) => {
     setAmmoTypeId(val);
-    const t = ammoTypes.find(a => a.id === Number(val));
+    const t = ammoTypes.find(a => a.id === val);
     setTrackingType(t?.tracking_type ?? 'qty');
   };
 
@@ -51,21 +51,21 @@ export default function BunkerInventoryAdd() {
       if (trackingType === 'qty') {
         if (!quantityDelta) { toast.error('הזן כמות'); return; }
         await addInventoryEntry(bunkerId, {
-          ammo_type_id: Number(ammoTypeId),
+          ammo_type_id: ammoTypeId,
           quantity_delta: Number(quantityDelta),
           entry_type: entryType, notes,
         });
       } else if (trackingType === 'batch') {
         const valid = batchRows.filter(b => b.batch_number.trim() && b.quantity > 0);
         if (!valid.length) { toast.error('הזן לפחות סדרה אחת עם כמות'); return; }
-        await addInventoryEntry(bunkerId, { ammo_type_id: Number(ammoTypeId), batches: valid, notes });
+        await addInventoryEntry(bunkerId!, { ammo_type_id: ammoTypeId, batches: valid, notes });
       } else {
         const serials = serialsText.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
         if (!serials.length) { toast.error('הזן לפחות מספר סידורי אחד'); return; }
-        await addInventoryEntry(bunkerId, { ammo_type_id: Number(ammoTypeId), serial_numbers: serials, notes });
+        await addInventoryEntry(bunkerId!, { ammo_type_id: ammoTypeId, serial_numbers: serials, notes });
       }
       toast.success('מלאי עודכן בהצלחה');
-      navigate(`/bunkers/${bunkerId}`);
+      navigate(`/bunkers/${bunkerId!}`);
     } catch {
       toast.error('שגיאה בעדכון המלאי');
     } finally { setSaving(false); }
@@ -75,7 +75,7 @@ export default function BunkerInventoryAdd() {
     (acc[t.category] = acc[t.category] || []).push(t); return acc;
   }, {});
 
-  const selectedType = ammoTypes.find(a => a.id === Number(ammoTypeId));
+  const selectedType = ammoTypes.find(a => a.id === ammoTypeId);
   const batchTotal = batchRows.reduce((s, b) => s + (b.quantity || 0), 0);
   const serialCount = serialsText.split(/[\n,]/).map(s => s.trim()).filter(Boolean).length;
 

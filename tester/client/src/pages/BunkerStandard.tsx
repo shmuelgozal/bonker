@@ -7,11 +7,11 @@ import { ArrowRight, Save, AlertTriangle, CheckCircle, ShieldCheck, Download } f
 
 export default function BunkerStandard() {
   const { id } = useParams<{ id: string }>();
-  const bunkerId = Number(id);
+  const bunkerId = id;
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
-  const [standardValues, setStandardValues] = useState<Record<number, string>>({});
+  const [standardValues, setStandardValues] = useState<Record<string, string>>({});
   const [gaps, setGaps] = useState<GapItem[]>([]);
   const [gapSummary, setGapSummary] = useState({ total: 0, deficit: 0, ok: 0 });
   const [activeTab, setActiveTab] = useState<'edit' | 'gaps'>('gaps');
@@ -21,10 +21,10 @@ export default function BunkerStandard() {
   const loadAll = async () => {
     try {
       const [b, types, std, gapData] = await Promise.all([
-        getBunker(bunkerId),
+        getBunker(bunkerId!),
         getAmmoTypes(),
-        getStandard(bunkerId),
-        getGaps(bunkerId),
+        getStandard(bunkerId!),
+        getGaps(bunkerId!),
       ]);
       setBunker(b);
       setAmmoTypes(types);

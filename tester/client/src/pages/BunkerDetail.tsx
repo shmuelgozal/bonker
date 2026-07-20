@@ -10,7 +10,7 @@ type TabId = 'inventory' | 'history' | 'counts' | 'issuances';
 export default function BunkerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const bunkerId = Number(id);
+  const bunkerId = id;
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('inventory');
@@ -20,7 +20,7 @@ export default function BunkerDetail() {
   const [issuances, setIssuances] = useState<Issuance[]>([]);
   const [gaps, setGaps] = useState<GapsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedItem, setExpandedItem] = useState<number | null>(null);
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [expandedBatches, setExpandedBatches] = useState<InventoryBatch[]>([]);
   const [expandedSerials, setExpandedSerials] = useState<InventorySerial[]>([]);
 
@@ -28,9 +28,9 @@ export default function BunkerDetail() {
     (async () => {
       try {
         const [b, inv, gapData] = await Promise.all([
-          getBunker(bunkerId),
-          getInventory(bunkerId),
-          getGaps(bunkerId).catch(() => null),
+          getBunker(bunkerId!),
+          getInventory(bunkerId!),
+          getGaps(bunkerId!).catch(() => null),
         ]);
         setBunker(b);
         setInventory(inv);
@@ -43,13 +43,13 @@ export default function BunkerDetail() {
 
   useEffect(() => {
     if (activeTab === 'history' && history.length === 0) {
-      getInventoryHistory(bunkerId).then(setHistory);
+      getInventoryHistory(bunkerId!).then(setHistory);
     }
     if (activeTab === 'counts' && counts.length === 0) {
-      getCounts(bunkerId).then(setCounts);
+      getCounts(bunkerId!).then(setCounts);
     }
     if (activeTab === 'issuances' && issuances.length === 0) {
-      getIssuances(bunkerId).then(setIssuances);
+      getIssuances(bunkerId!).then(setIssuances);
     }
   }, [activeTab, bunkerId]);
 
@@ -76,10 +76,10 @@ export default function BunkerDetail() {
     }
     setExpandedItem(item.ammo_type_id);
     if (item.tracking_type === 'batch') {
-      setExpandedBatches(await getBatches(bunkerId, item.ammo_type_id));
+      setExpandedBatches(await getBatches(bunkerId!, item.ammo_type_id));
       setExpandedSerials([]);
     } else if (item.tracking_type === 'serial') {
-      setExpandedSerials(await getSerials(bunkerId, item.ammo_type_id));
+      setExpandedSerials(await getSerials(bunkerId!, item.ammo_type_id));
       setExpandedBatches([]);
     }
   };

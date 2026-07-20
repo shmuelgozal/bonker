@@ -9,7 +9,7 @@ type IssuanceWithItems = Issuance & { items: IssuanceItem[] };
 
 export default function IssuanceDetail() {
   const { id, issuanceId } = useParams<{ id: string; issuanceId: string }>();
-  const bunkerId = Number(id);
+  const bunkerId = id;
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
   const [issuance, setIssuance] = useState<IssuanceWithItems | null>(null);
@@ -24,11 +24,11 @@ export default function IssuanceDetail() {
   const [issueDate, setIssueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [newImage, setNewImage] = useState<File | null>(null);
-  const [itemQtys, setItemQtys] = useState<Record<number, number>>({});
+  const [itemQtys, setItemQtys] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
-    const [b, iss] = await Promise.all([getBunker(bunkerId), getIssuance(bunkerId, Number(issuanceId))]);
+    const [b, iss] = await Promise.all([getBunker(bunkerId!), getIssuance(bunkerId!, issuanceId!)]);
     setBunker(b);
     setIssuance(iss);
   };

@@ -12,7 +12,7 @@ interface LinkBunkerFormProps {
 
 export default function LinkBunkerForm({ unit, linkedBunkers, onDone }: LinkBunkerFormProps) {
   const [allBunkers, setAllBunkers] = useState<Bunker[]>([]);
-  const [selectedBunkerId, setSelectedBunkerId] = useState<number | ''>('');
+  const [selectedBunkerId, setSelectedBunkerId] = useState<string | ''>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,7 +28,7 @@ export default function LinkBunkerForm({ unit, linkedBunkers, onDone }: LinkBunk
     setLoading(true);
     setError('');
     try {
-      await linkBunkerToUnit(Number(selectedBunkerId), unit.id);
+      await linkBunkerToUnit(selectedBunkerId, unit.id);
       setSelectedBunkerId('');
       onDone();
     } catch {
@@ -38,7 +38,7 @@ export default function LinkBunkerForm({ unit, linkedBunkers, onDone }: LinkBunk
     }
   };
 
-  const handleUnlink = async (bunkerId: number) => {
+  const handleUnlink = async (bunkerId: string) => {
     setLoading(true);
     try {
       await linkBunkerToUnit(bunkerId, null);

@@ -28,7 +28,7 @@ const emptyRow = (): IssuanceRow => ({
 export default function BunkerIssuanceNew() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const bunkerId = Number(id);
+  const bunkerId = id;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
@@ -50,11 +50,11 @@ export default function BunkerIssuanceNew() {
     });
   }, [bunkerId]);
 
-  const stockOf = (ammoTypeId: number) =>
+  const stockOf = (ammoTypeId: string) =>
     inventory.find(i => i.ammo_type_id === ammoTypeId)?.quantity ?? 0;
 
   const handleTypeSelect = async (rowIdx: number, ammoTypeIdStr: string) => {
-    const ammoTypeId = Number(ammoTypeIdStr);
+    const ammoTypeId = ammoTypeIdStr;
     const t = ammoTypes.find(a => a.id === ammoTypeId);
     const trackingType: TrackingType = t?.tracking_type ?? 'qty';
 

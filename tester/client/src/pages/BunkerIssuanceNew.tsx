@@ -9,7 +9,7 @@ import { TrackingBadge } from './AmmoTypes';
 interface BatchDetail { batch_number: string; available: number; quantity: number }
 
 interface IssuanceRow {
-  ammo_type_id: number;
+  ammo_type_id: string;
   tracking_type: TrackingType;
   quantity: number;                 // qty type
   batch_details: BatchDetail[];     // batch type
@@ -20,7 +20,7 @@ interface IssuanceRow {
 }
 
 const emptyRow = (): IssuanceRow => ({
-  ammo_type_id: 0, tracking_type: 'qty', quantity: 1,
+  ammo_type_id: '', tracking_type: 'qty', quantity: 1,
   batch_details: [], serial_numbers: [],
   available_serials: [], available_batches: [], serial_filter: '',
 });
@@ -28,7 +28,7 @@ const emptyRow = (): IssuanceRow => ({
 export default function BunkerIssuanceNew() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const bunkerId = Number(id);
+  const bunkerId = id;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [bunker, setBunker] = useState<Bunker | null>(null);
@@ -40,7 +40,7 @@ export default function BunkerIssuanceNew() {
   const [unitName, setUnitName] = useState('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
-  const [linkedBunkerId, setLinkedBunkerId] = useState<number | null>(null);
+  const [linkedBunkerId, setLinkedBunkerId] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [rows, setRows] = useState<IssuanceRow[]>([emptyRow()]);
@@ -52,11 +52,11 @@ export default function BunkerIssuanceNew() {
     });
   }, [bunkerId]);
 
-  const stockOf = (ammoTypeId: number) =>
+  const stockOf = (ammoTypeId: string) =>
     inventory.find(i => i.ammo_type_id === ammoTypeId)?.quantity ?? 0;
 
   const handleTypeSelect = async (rowIdx: number, ammoTypeIdStr: string) => {
-    const ammoTypeId = Number(ammoTypeIdStr);
+    const ammoTypeId = ammoTypeIdStr;
     const t = ammoTypes.find(a => a.id === ammoTypeId);
     const trackingType: TrackingType = t?.tracking_type ?? 'qty';
 

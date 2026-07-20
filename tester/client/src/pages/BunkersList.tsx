@@ -17,7 +17,7 @@ export default function BunkersList() {
   const [bunkers, setBunkers] = useState<Bunker[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<BunkerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
 
@@ -60,7 +60,7 @@ export default function BunkersList() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm('האם למחוק את הבונקר? פעולה זו לא ניתנת לביטול.')) return;
     try {
       await deleteBunker(id);

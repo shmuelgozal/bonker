@@ -1,9 +1,9 @@
 export interface Bunker {
-  id: number;
+  id: string;
   name: string;
   location: string | null;
   description: string | null;
-  unit_id: number | null;
+  unit_id: string | null;
   unit_name?: string | null;
   unit_type?: string | null;
   created_at: string;
@@ -15,7 +15,7 @@ export interface Bunker {
 export type TrackingType = 'qty' | 'batch' | 'serial';
 
 export interface AmmoType {
-  id: number;
+  id: string;
   name: string;
   unit: string;
   category: string;
@@ -24,28 +24,28 @@ export interface AmmoType {
 }
 
 export interface InventoryBatch {
-  id: number;
-  bunker_id: number;
-  ammo_type_id: number;
+  id: string;
+  bunker_id: string;
+  ammo_type_id: string;
   batch_number: string;
   quantity: number;
   created_at: string;
 }
 
 export interface InventorySerial {
-  id: number;
-  bunker_id: number;
-  ammo_type_id: number;
+  id: string;
+  bunker_id: string;
+  ammo_type_id: string;
   serial_number: string;
   status: 'in_stock' | 'issued';
-  issuance_id: number | null;
+  issuance_id: string | null;
   created_at: string;
 }
 
 export interface InventoryItem {
-  id: number;
-  bunker_id: number;
-  ammo_type_id: number;
+  id: string;
+  bunker_id: string;
+  ammo_type_id: string;
   quantity: number;
   updated_at: string;
   ammo_name: string;
@@ -55,9 +55,9 @@ export interface InventoryItem {
 }
 
 export interface InventoryEntry {
-  id: number;
-  bunker_id: number;
-  ammo_type_id: number;
+  id: string;
+  bunker_id: string;
+  ammo_type_id: string;
   quantity_delta: number;
   entry_type: 'add' | 'adjust' | 'issuance' | 'count';
   notes: string | null;
@@ -68,8 +68,8 @@ export interface InventoryEntry {
 }
 
 export interface InventoryCount {
-  id: number;
-  bunker_id: number;
+  id: string;
+  bunker_id: string;
   count_date: string;
   status: 'draft' | 'complete';
   notes: string | null;
@@ -78,9 +78,9 @@ export interface InventoryCount {
 }
 
 export interface CountItem {
-  id: number;
-  count_id: number;
-  ammo_type_id: number;
+  id: string;
+  count_id: string;
+  ammo_type_id: string;
   counted_qty: number;
   ammo_name: string;
   unit: string;
@@ -88,9 +88,9 @@ export interface CountItem {
 }
 
 export interface Issuance {
-  id: number;
-  bunker_id: number;
-  linked_bunker_id: number | null;
+  id: string;
+  bunker_id: string;
+  linked_bunker_id: string | null;
   recipient_name: string | null;
   recipient_id: string | null;
   unit_name: string | null;
@@ -103,9 +103,9 @@ export interface Issuance {
 }
 
 export interface IssuanceItem {
-  id: number;
-  issuance_id: number;
-  ammo_type_id: number;
+  id: string;
+  issuance_id: string;
+  ammo_type_id: string;
   quantity: number;
   ammo_name: string;
   unit: string;
@@ -116,9 +116,9 @@ export interface IssuanceItem {
 }
 
 export interface BunkerStandard {
-  id: number;
-  bunker_id: number;
-  ammo_type_id: number;
+  id: string;
+  bunker_id: string;
+  ammo_type_id: string;
   required_qty: number;
   ammo_name: string;
   unit: string;
@@ -126,7 +126,7 @@ export interface BunkerStandard {
 }
 
 export interface GapItem {
-  ammo_type_id: number;
+  ammo_type_id: string;
   ammo_name: string;
   unit: string;
   category: string;
@@ -144,17 +144,17 @@ export type UnitType = 'battalion' | 'company' | 'storage_location';
 export type LocationType = 'bunker' | 'vehicle' | 'pillbox';
 
 export interface StorageLocation {
-  id: number;
-  unit_id: number;
+  id: string;
+  unit_id: string;
   location_type: LocationType;
   location_details: string | null;
 }
 
 export interface Unit {
-  id: number;
+  id: string;
   name: string;
   type: UnitType;
-  parent_unit_id: number | null;
+  parent_unit_id: string | null;
   description: string | null;
   created_at: string;
 }

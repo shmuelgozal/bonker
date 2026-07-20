@@ -34,7 +34,7 @@ export default function AmmoTypes() {
   const [types, setTypes] = useState<AmmoType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<AmmoForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [filterCat, setFilterCat] = useState('');
