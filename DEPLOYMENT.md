@@ -3,17 +3,16 @@
 This guide will help you deploy the Bonker ammunition management system to be accessible from your Android phone.
 
 ## System Architecture
-- **Backend**: Node.js/Express running on Fly.io (persistent storage, always-on, free)
+- **Backend**: Node.js/Express running on Render.com (free, persists SQLite)
 - **Frontend**: React/Vite deployed to Netlify (free)  
-- **Database**: SQLite (persisted to Fly.io volume)
-- **Cost**: Completely FREE
+- **Database**: SQLite (persisted to Render.com)
+- **Cost**: Completely FREE (no payment card required)
 
 ## Prerequisites
 
 1. **GitHub Account** - Sign up at https://github.com (free)
-2. **Fly.io Account** - Sign up at https://fly.io (free)
+2. **Render.com Account** - Sign up at https://dashboard.render.com (free, no credit card)
 3. **Netlify Account** - Sign up at https://netlify.com (free)
-4. **Fly.io CLI** - Download from https://fly.io/docs/getting-started/installing-flyctl/
 
 ## Step 1: Set Up GitHub Repository
 
@@ -38,66 +37,63 @@ This guide will help you deploy the Bonker ammunition management system to be ac
    git push -u origin main
    ```
 
-## Step 2: Deploy Backend to Fly.io
+## Step 2: Deploy Backend to Render.com
 
-### 2.1 Install Fly.io CLI
+### 2.1 Create Render.com Account
 
-1. Download and install from: https://fly.io/docs/getting-started/installing-flyctl/
-2. Verify installation:
-   ```
-   flyctl version
-   ```
+1. Go to https://dashboard.render.com
+2. Sign up with GitHub (easiest) or email
+3. Verify email if needed
 
-### 2.2 Create Fly.io App
+### 2.2 Create Web Service
 
-1. Open Terminal in your project folder
-2. Run:
-   ```
-   flyctl auth login
-   ```
-3. Follow prompts to log in
-4. Create app:
-   ```
-   flyctl launch
-   ```
-5. When asked:
-   - App name: `bonker-api`
-   - Region: Choose closest to you (e.g., `iad` for North America)
-   - Postgres database: **No**
-   - Redis: **No**
+1. Click **"New +"** button
+2. Select **"Web Service"**
+3. Connect GitHub repository:
+   - Click "Connect account" if needed
+   - Authorize Render to access your GitHub
+   - Select `bonker` repository
+4. Fill in the form:
+   - **Name**: `bonker-api`
+   - **Environment**: Node
+   - **Build Command**: `cd tester/server && npm install && npm run build`
+   - **Start Command**: `cd tester/server && npm start`
+   - **Instance Type**: Free
+5. Click **"Create Web Service"**
 
-### 2.3 Deploy
+### 2.3 Wait for Deployment
 
+Deployment takes 3-5 minutes. You'll see:
+- Build in progress
+- Build success
+- Service running
+
+Once complete, you'll have a URL like:
 ```
-flyctl deploy
+https://bonker-api.onrender.com
 ```
-
-### 2.4 Get Your Backend URL
-
-After deployment completes:
-```
-flyctl open
-```
-
-This will open your live API at `https://bonker-api.fly.dev` (your app name may differ)
 
 **Copy this URL - you'll need it for the frontend!**
+
+### 2.4 Monitor Logs (if needed)
+
+If deployment fails, check the "Logs" tab to see errors
 
 ## Step 3: Deploy Frontend to Netlify
 
 ### 3.1 Update Frontend API URL
 
 1. Open `tester/client/netlify.toml`
-2. Replace the API URL with your Fly.io URL:
+2. Replace the API URL with your Render.com URL:
    ```toml
    [build.environment]
-     VITE_API_BASE_URL = "https://bonker-api.fly.dev"  # ← Use YOUR URL from Step 2.4
+     VITE_API_BASE_URL = "https://bonker-api.onrender.com"  # ← Use YOUR URL from Step 2.4
    ```
 
 3. Commit and push:
    ```
    git add .
-   git commit -m "Update API URL for deployment"
+   git commit -m "Update API URL for Render deployment"
    git push
    ```
 
@@ -150,17 +146,19 @@ https://bonker-ammo-management.netlify.app
 ## Troubleshooting
 
 ### API Connection Issues
-- Check that frontend VITE_API_BASE_URL matches your Fly.io URL
+- Check that frontend VITE_API_BASE_URL matches your Render.com URL
 - Make sure both deployments are complete (no "Deploying" status)
+- Check Render.com dashboard for any error logs
 
-### Fly.io App Went to Sleep
-- Free Fly.io apps sleep after 30 minutes of inactivity
+### Render.com App Went to Sleep
+- Free Render.com apps sleep after 15 minutes of inactivity
 - First request after sleep takes 30 seconds to wake
-- Consider upgrading to paid Fly.io for always-on ($5/month)
+- Consider upgrading to paid Render for always-on service ($7/month)
 
 ### Database/Data Issues
-- Fly.io persists your SQLite database to a volume
+- SQLite database is persisted on Render.com
 - Your data will survive app restarts
+- If issues occur, check Render dashboard logs
 
 ## Maintenance
 
@@ -169,15 +167,16 @@ https://bonker-ammo-management.netlify.app
 After making changes locally:
 
 ```powershell
-# Update backend
+# Update backend (push to GitHub, Render auto-deploys)
 git add .
 git commit -m "Update: [description]"
 git push
-flyctl deploy
 
 # Frontend auto-deploys from GitHub
 # Just push your changes and Netlify rebuilds automatically
 ```
+
+Render.com will automatically detect the push and redeploy your backend.
 
 ## Optional: Upgrade for Better Performance
 
@@ -189,7 +188,7 @@ After trying the free version, you can upgrade:
 
 ## Support
 
-- Fly.io Docs: https://fly.io/docs/
+- Render.com Docs: https://render.com/docs
 - Netlify Docs: https://docs.netlify.com/
 - React/Vite: https://vitejs.dev/
 

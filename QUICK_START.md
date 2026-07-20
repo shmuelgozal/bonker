@@ -2,12 +2,11 @@
 
 This guide will get your Bonker app live and accessible from your Android phone **completely FREE**.
 
-## Prerequisites (FREE accounts)
+## Prerequisites (FREE accounts - NO credit card needed)
 
 1. GitHub account: https://github.com/signup
-2. Fly.io account: https://fly.io (free tier)
+2. Render.com account: https://dashboard.render.com (free, no payment)
 3. Netlify account: https://app.netlify.com (free tier)
-4. Fly CLI installed: https://fly.io/docs/getting-started/installing-flyctl/
 
 ---
 
@@ -46,44 +45,37 @@ git push -u origin main
 
 ---
 
-## STEP 2: Deploy Backend to Fly.io (5 minutes)
+## STEP 2: Deploy Backend to Render.com (5 minutes)
 
-### 2.1 Install Fly CLI
+### 2.1 Sign Up to Render
 
-Download: https://fly.io/docs/getting-started/installing-flyctl/
+Go to: https://dashboard.render.com
 
-Verify:
-```
-flyctl version
-```
+Sign up with GitHub (easier) or email
 
-### 2.2 Deploy to Fly.io
+### 2.2 Create Web Service
 
-```powershell
-cd c:\Users\shmuel.gozal\myWork\bonker
+1. Click **"New +"** → **"Web Service"**
+2. Connect GitHub:
+   - Click "Connect account"
+   - Authorize Render
+   - Select your `bonker` repository
 
-# Login to Fly.io
-flyctl auth login
+3. Configure the service:
+   - **Name**: `bonker-api`
+   - **Runtime**: Node
+   - **Build Command**: `cd tester/server && npm install && npm run build`
+   - **Start Command**: `cd tester/server && npm start`
+   - **Plan**: Free
 
-# Launch app
-flyctl launch
-```
-
-When prompted:
-- **App name**: `bonker-api`
-- **Region**: Choose closest to you (e.g., `iad`)
-- **Database**: No
-- **Redeply**: Yes
+4. Click **"Create Web Service"**
 
 ### 2.3 Wait for Deployment
 
-Takes about 2-3 minutes. When complete:
-
+Takes about 3-5 minutes. When complete, you'll see a URL like:
 ```
-flyctl status
+https://bonker-api.onrender.com
 ```
-
-Copy your app URL from the output (looks like: `https://bonker-api.fly.dev`)
 
 **SAVE THIS URL - You'll need it next!** 📌
 
@@ -97,10 +89,10 @@ Edit file: `tester/client/netlify.toml`
 
 Find this line:
 ```toml
-VITE_API_BASE_URL = "https://bonker-api.fly.dev"
+VITE_API_BASE_URL = "https://bonker-api.onrender.com"
 ```
 
-Replace `bonker-api.fly.dev` with YOUR Fly.io URL from Step 2.3
+Replace `bonker-api.onrender.com` with YOUR Render.com URL from Step 2.3
 
 Save the file.
 
@@ -185,30 +177,18 @@ From your phone, test:
 
 ### Backend Not Responding
 
-```bash
-# Check if app is running
-flyctl status
-
-# View logs
-flyctl logs
-
-# Restart if needed
-flyctl restart
-```
+1. Check Render dashboard: https://dashboard.render.com
+2. Click your `bonker-api` service
+3. Check "Logs" tab for errors
+4. If build failed, check build command syntax
 
 ### Slow First Load
 
-Free Fly.io apps sleep after 30 minutes. First request wakes them (takes ~30 seconds).
+Free Render.com apps sleep after 15 minutes. First request wakes them (takes ~30 seconds).
 
 ### Data Lost After Restart
 
-Your data is persisted on Fly.io. Should be there when app restarts.
-
-To verify database exists:
-```bash
-flyctl ssh console
-ls -la /app/tester/server/data/
-```
+Your data is persisted. Should be there when app restarts.
 
 ---
 
@@ -217,10 +197,9 @@ ls -la /app/tester/server/data/
 After testing free version:
 
 ### Keep Backend Always-On
-```bash
-flyctl scale vm shared-cpu-1x 256 --ha=false
-```
-Cost: ~$5/month
+In Render dashboard, upgrade from Free to Paid plan (~$7/month for always-on)
+
+Click your service → Settings → Change Plan
 
 ### Add Authentication
 Follow GitHub auth tutorial in README.md
@@ -251,7 +230,7 @@ Accessible anywhere with internet! 🌍
 
 ## 📚 Learn More
 
-- **Fly.io**: https://fly.io/docs/
+- **Render.com**: https://render.com/docs
 - **Netlify**: https://docs.netlify.com/
 - **Full Guide**: See `DEPLOYMENT.md`
 

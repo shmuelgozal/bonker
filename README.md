@@ -18,7 +18,7 @@ A comprehensive web application for managing ammunition inventory across hierarc
 Access from anywhere:
 ```
 Frontend: https://bonker-ammo-management.netlify.app
-API: https://bonker-api.fly.dev
+API: https://bonker-api.onrender.com
 ```
 
 ## 💻 Tech Stack
