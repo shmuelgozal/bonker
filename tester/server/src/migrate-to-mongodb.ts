@@ -29,6 +29,18 @@ async function migrate() {
     await mongoose.connect(MONGODB_URI as string);
     console.log('✅ Connected to MongoDB');
 
+    // Clear all collections first to prevent duplicates
+    console.log('🧹 Clearing existing collections...');
+    await models.Unit.deleteMany({});
+    await models.Bunker.deleteMany({});
+    await models.AmmoType.deleteMany({});
+    await models.Inventory.deleteMany({});
+    await models.InventoryEntry.deleteMany({});
+    await models.BunkerStandard.deleteMany({});
+    await models.Issuance.deleteMany({});
+    await models.IssuanceItem.deleteMany({});
+    console.log('✅ Collections cleared');
+
     // Open SQLite database
     console.log('📖 Opening SQLite database...');
     const db = new DatabaseSync(DB_PATH);
