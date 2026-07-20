@@ -3,7 +3,33 @@ import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getAmmoTypes, getStandard, updateStandard, getGaps, getBunker } from '../api/client';
 import type { AmmoType, GapItem, Bunker } from '../types';
-import { ArrowRight, Save, AlertTriangle, CheckCircle, ShieldCheck, Download } from 'lucide-react';
+import { ArrowRight, Save, AlertTriangle, CheckCircle, ShieldCheck, Download, ClipboardList } from 'lucide-react';
+
+// ─── Templates ─────────────────────────────────────────────────────────────
+// Values taken from "תו תקן ע"פ משימות" document; only תחמושת (ammo) items.
+// Matched at runtime by ammo-type name (case-insensitive).
+const STANDARD_TEMPLATES: Record<string, Record<string, number>> = {
+  'רכב סי': {
+    'גומי': 40, 'תחמיש': 58, 'מטול לתאורה': 4, 'מטול גז': 28,
+    'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רימון עשן': 1,
+    'תופי': 1, 'רומה גומי': 1, 'רימון רסס': 8, 'לאו': 1,
+  },
+  'רכב חפ"ק': {
+    'גומי': 40, 'תחמיש': 58, 'מטול לתאורה': 4, 'מטול גז': 28,
+    'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8,
+    'רומה גומי': 1, 'רימון רסס': 8, 'לאו': 2,
+  },
+  'רכב כיתת כוננות': {
+    'גומי': 24, 'תחמיש': 58, 'מטול לתאורה': 10, 'מטול גז': 28,
+    'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רימון עשן': 3,
+    'תופי': 1, 'רומה גומי': 2, 'רימון רסס': 16, 'לאו': 2,
+  },
+  'פילבוקס': {
+    'גומי': 48, 'תחמיש': 116, 'מטול לתאורה': 20, 'מטול גז': 56,
+    'ספוג': 56, 'רימון הלם': 36, 'רימון גז': 16, 'רימון עשן': 3,
+    'תופי': 2, 'רומה גומי': 2,
+  },
+};
 
 export default function BunkerStandard() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +43,18 @@ export default function BunkerStandard() {
   const [activeTab, setActiveTab] = useState<'edit' | 'gaps'>('gaps');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
+  const applyTemplate = (templateName: string) => {
+    const tpl = STANDARD_TEMPLATES[templateName];
+    if (!tpl) return;
+    const updated: Record<string, string> = { ...standardValues };
+    ammoTypes.forEach(t => {
+      const key = Object.keys(tpl).find(k => k.toLowerCase() === t.name.toLowerCase());
+      if (key !== undefined) updated[t.id] = String(tpl[key]);
+    });
+    setStandardValues(updated);
+  };
 
   const loadAll = async () => {
     try {
@@ -243,6 +281,31 @@ export default function BunkerStandard() {
           <div className="text-sm text-gray-500 mb-4">
             הגדר את הכמות הנדרשת לכל פריט. פריטים עם ערך 0 לא ייכללו בתו תקן.
           </div>
+
+          {/* Template selector */}
+          <div className="card p-4 mb-5 flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-200">
+            <ClipboardList size={18} className="text-blue-600 shrink-0" />
+            <span className="text-sm font-medium text-blue-800">טמפלייט לפי סוג רכב / מוצב:</span>
+            <select
+              className="input text-sm"
+              value={selectedTemplate}
+              onChange={e => setSelectedTemplate(e.target.value)}
+            >
+              <option value="">— בחר טמפלייט —</option>
+              {Object.keys(STANDARD_TEMPLATES).map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <button
+              className="btn-primary text-sm py-1.5 px-3 disabled:opacity-50"
+              disabled={!selectedTemplate}
+              onClick={() => { if (selectedTemplate) { applyTemplate(selectedTemplate); } }}
+            >
+              החל טמפלייט
+            </button>
+            <span className="text-xs text-blue-600">ניתן לערוך את הכמויות לאחר ההחלה</span>
+          </div>
+
           {Object.entries(grouped).map(([category, items]) => (
             <div key={category} className="card overflow-hidden mb-4">
               <div className="bg-gray-50 px-4 py-2.5 border-b">
