@@ -45,13 +45,28 @@ export default function UnitForm({ units, initialUnit, onSubmit, onCancel }: Uni
   // Get valid parent units based on current type
   const getValidParents = () => {
     if (type === 'battalion') return []; // No parent for battalion
+    
+    // Flatten the tree to get all units
+    const flattenUnits = (unitList: UnitWithChildren[]): UnitWithChildren[] => {
+      const result: UnitWithChildren[] = [];
+      for (const unit of unitList) {
+        result.push(unit);
+        if (unit.children) {
+          result.push(...flattenUnits(unit.children));
+        }
+      }
+      return result;
+    };
+    
+    const allUnits = flattenUnits(units);
+    
     if (type === 'company') {
       // Company can have battalion as parent
-      return units.filter(u => u.type === 'battalion');
+      return allUnits.filter(u => u.type === 'battalion');
     }
     if (type === 'storage_location') {
       // Storage location can have company as parent
-      return units.filter(u => u.type === 'company');
+      return allUnits.filter(u => u.type === 'company');
     }
     return [];
   };
@@ -108,7 +123,7 @@ export default function UnitForm({ units, initialUnit, onSubmit, onCancel }: Uni
           </label>
           <select
             value={parentUnitId || ''}
-            onChange={(e) => setParentUnitId(e.target.value ? parseInt(e.target.value) : null)}
+            onChange={(e) => setParentUnitId(e.target.value || null)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">-- בחר מסגרת הורה --</option>

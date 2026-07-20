@@ -12,7 +12,12 @@ router.get('/', async (req: Request, res: Response) => {
 
     const buildTree = (parentId: string | null = null): any[] => {
       return (units as any[])
-        .filter((u) => (u.parent_unit_id === parentId || (!u.parent_unit_id && parentId === null)))
+        .filter((u) => {
+          // Handle both null and undefined parent_unit_id
+          if (!u.parent_unit_id && !parentId) return true;
+          if (!u.parent_unit_id || !parentId) return false;
+          return String(u.parent_unit_id) === String(parentId);
+        })
         .map((unit) => {
           const storage = storageLocations.find((s: any) => String(s.unit_id) === String(unit._id));
           return {

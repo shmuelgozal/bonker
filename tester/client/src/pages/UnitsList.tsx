@@ -12,14 +12,14 @@ export default function UnitsList() {
   const navigate = useNavigate();
   const [units, setUnits] = useState<UnitWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<UnitWithChildren | null>(null);
   const [showStorageForm, setShowStorageForm] = useState(false);
   const [selectedUnitForStorage, setSelectedUnitForStorage] = useState<UnitWithChildren | null>(null);
   const [addStorageToParent, setAddStorageToParent] = useState<UnitWithChildren | null>(null);
   const [linkBunkerUnit, setLinkBunkerUnit] = useState<UnitWithChildren | null>(null);
-  const [unitBunkers, setUnitBunkers] = useState<Record<number, Bunker[]>>({});
+  const [unitBunkers, setUnitBunkers] = useState<Record<string, Bunker[]>>({});
 
   useEffect(() => {
     loadUnits();
@@ -47,7 +47,7 @@ export default function UnitsList() {
     setExpandedNodes(newExpanded);
   };
 
-  const handleDeleteUnit = async (id: number) => {
+  const handleDeleteUnit = async (id: string) => {
     if (!confirm('Are you sure you want to delete this unit?')) return;
     try {
       await deleteUnit(id);
@@ -74,7 +74,7 @@ export default function UnitsList() {
     }
   };
 
-  const loadUnitBunkers = async (unitId: number) => {
+  const loadUnitBunkers = async (unitId: string) => {
     try {
       const bunkers = await getUnitBunkers(unitId);
       setUnitBunkers(prev => ({ ...prev, [unitId]: bunkers }));

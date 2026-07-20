@@ -13,30 +13,30 @@ const api = axios.create({ baseURL: apiBaseURL });
 
 // Units (Hierarchical Framework)
 export const getUnits = () => api.get<UnitWithChildren[]>('/units').then(r => r.data);
-export const getUnit = (id: number) => api.get<UnitDetail>(`/units/${id}`).then(r => r.data);
-export const createUnit = (data: { name: string; type?: string; parent_unit_id?: number | null; description?: string }) =>
+export const getUnit = (id: string) => api.get<UnitDetail>(`/units/${id}`).then(r => r.data);
+export const createUnit = (data: { name: string; type?: string; parent_unit_id?: string | null; description?: string }) =>
   api.post<Unit>('/units', data).then(r => r.data);
-export const updateUnit = (id: number, data: { name?: string; type?: string; description?: string | null; parent_unit_id?: number | null }) =>
+export const updateUnit = (id: string, data: { name?: string; type?: string; description?: string | null; parent_unit_id?: string | null }) =>
   api.put<Unit>(`/units/${id}`, data).then(r => r.data);
-export const deleteUnit = (id: number) => api.delete(`/units/${id}`).then(r => r.data);
-export const addStorageLocation = (unitId: number, data: { location_type: string; location_details?: string }) =>
+export const deleteUnit = (id: string) => api.delete(`/units/${id}`).then(r => r.data);
+export const addStorageLocation = (unitId: string, data: { location_type: string; location_details?: string }) =>
   api.post<StorageLocation>(`/units/${unitId}/storage`, data).then(r => r.data);
-export const getStorageLocation = (unitId: number) =>
+export const getStorageLocation = (unitId: string) =>
   api.get<StorageLocation>(`/units/${unitId}/storage`).then(r => r.data).catch(() => null);
-export const getUnitBunkers = (unitId: number) =>
+export const getUnitBunkers = (unitId: string) =>
   api.get<Bunker[]>(`/units/${unitId}/bunkers`).then(r => r.data);
-export const linkBunkerToUnit = (bunkerId: number, unitId: number | null) =>
+export const linkBunkerToUnit = (bunkerId: string, unitId: string | null) =>
   api.put<Bunker>(`/bunkers/${bunkerId}/link-unit`, { unit_id: unitId }).then(r => r.data);
-export const ensureUnitBunker = (unitId: number) =>
+export const ensureUnitBunker = (unitId: string) =>
   api.post<Bunker>(`/units/${unitId}/ensure-bunker`).then(r => r.data);
 
 // Unit inventory & gaps aggregation
 interface UnitInventorySummary {
-  unit_id: number;
+  unit_id: string;
   unit_name: string;
   bunker_count: number;
   inventory: Array<{
-    ammo_type_id: number;
+    ammo_type_id: string;
     ammo_name: string;
     unit: string;
     category: string;
@@ -44,32 +44,32 @@ interface UnitInventorySummary {
   }>;
 }
 
-export const getUnitInventorySummary = (unitId: number) =>
+export const getUnitInventorySummary = (unitId: string) =>
   api.get<UnitInventorySummary>(`/units/${unitId}/inventory-summary`).then(r => r.data);
 
-export const getUnitGaps = (unitId: number) =>
+export const getUnitGaps = (unitId: string) =>
   api.get<GapsResponse>(`/units/${unitId}/gaps`).then(r => r.data);
 
 // Bunkers
 export const getBunkers = () => api.get<Bunker[]>('/bunkers').then(r => r.data);
-export const getBunker = (id: number) => api.get<Bunker>(`/bunkers/${id}`).then(r => r.data);
+export const getBunker = (id: string) => api.get<Bunker>(`/bunkers/${id}`).then(r => r.data);
 export const createBunker = (data: Partial<Bunker>) => api.post<Bunker>('/bunkers', data).then(r => r.data);
-export const updateBunker = (id: number, data: Partial<Bunker>) => api.put<Bunker>(`/bunkers/${id}`, data).then(r => r.data);
-export const deleteBunker = (id: number) => api.delete(`/bunkers/${id}`).then(r => r.data);
+export const updateBunker = (id: string, data: Partial<Bunker>) => api.put<Bunker>(`/bunkers/${id}`, data).then(r => r.data);
+export const deleteBunker = (id: string) => api.delete(`/bunkers/${id}`).then(r => r.data);
 
 // Ammo Types
 export const getAmmoTypes = () => api.get<AmmoType[]>('/ammo-types').then(r => r.data);
 export const createAmmoType = (data: Partial<AmmoType>) => api.post<AmmoType>('/ammo-types', data).then(r => r.data);
-export const updateAmmoType = (id: number, data: Partial<AmmoType>) => api.put<AmmoType>(`/ammo-types/${id}`, data).then(r => r.data);
-export const deleteAmmoType = (id: number) => api.delete(`/ammo-types/${id}`).then(r => r.data);
+export const updateAmmoType = (id: string, data: Partial<AmmoType>) => api.put<AmmoType>(`/ammo-types/${id}`, data).then(r => r.data);
+export const deleteAmmoType = (id: string) => api.delete(`/ammo-types/${id}`).then(r => r.data);
 
 // Inventory
-export const getInventory = (bunkerId: number) =>
+export const getInventory = (bunkerId: string) =>
   api.get<InventoryItem[]>(`/bunkers/${bunkerId}/inventory`).then(r => r.data);
-export const getInventoryHistory = (bunkerId: number) =>
+export const getInventoryHistory = (bunkerId: string) =>
   api.get<InventoryEntry[]>(`/bunkers/${bunkerId}/inventory/history`).then(r => r.data);
-export const addInventoryEntry = (bunkerId: number, data: {
-  ammo_type_id: number;
+export const addInventoryEntry = (bunkerId: string, data: {
+  ammo_type_id: string;
   quantity_delta?: number;
   entry_type?: string;
   notes?: string;
