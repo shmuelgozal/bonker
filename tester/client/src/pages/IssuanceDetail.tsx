@@ -45,8 +45,8 @@ export default function IssuanceDetail() {
     setIssueDate(issuance.issue_date || '');
     setNotes(issuance.notes || '');
     setNewImage(null);
-    const qtys: Record<number, number> = {};
-    issuance.items.forEach(item => { qtys[item.id] = item.quantity; });
+    const qtys: Record<string, number> = {};
+    issuance.items.forEach(item => { qtys[item.ammo_type_id] = item.quantity; });
     setItemQtys(qtys);
     setEditing(true);
   };
@@ -69,7 +69,7 @@ export default function IssuanceDetail() {
         .map(item => ({ issuance_item_id: item.id, new_quantity: itemQtys[item.id] ?? item.quantity }));
       if (itemUpdates.length) fd.append('items', JSON.stringify(itemUpdates));
 
-      await updateIssuance(bunkerId, issuance.id, fd);
+      await updateIssuance(bunkerId!, issuance.id, fd);
       await load();
       setEditing(false);
       toast.success('הנפקה עודכנה בהצלחה');

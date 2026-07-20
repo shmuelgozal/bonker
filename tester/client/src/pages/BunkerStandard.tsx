@@ -31,7 +31,7 @@ export default function BunkerStandard() {
       setGaps(gapData.gaps);
       setGapSummary(gapData.summary);
 
-      const stdMap: Record<number, string> = {};
+      const stdMap: Record<string, string> = {};
       std.forEach(s => { stdMap[s.ammo_type_id] = String(s.required_qty); });
       setStandardValues(stdMap);
     } finally {

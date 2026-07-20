@@ -37,7 +37,7 @@ export default function UnitsList() {
     }
   };
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (id: string) => {
     const newExpanded = new Set(expandedNodes);
     if (newExpanded.has(id)) {
       newExpanded.delete(id);

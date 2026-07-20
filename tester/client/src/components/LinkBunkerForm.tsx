@@ -93,7 +93,7 @@ export default function LinkBunkerForm({ unit, linkedBunkers, onDone }: LinkBunk
         <div className="flex gap-2 items-center">
           <select
             value={selectedBunkerId}
-            onChange={e => setSelectedBunkerId(e.target.value ? Number(e.target.value) : '')}
+            onChange={e => setSelectedBunkerId(e.target.value || '')}
             className="flex-1 text-sm px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">-- בחר בונקר לקישור --</option>

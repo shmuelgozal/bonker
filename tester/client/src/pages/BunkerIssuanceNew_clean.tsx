@@ -9,7 +9,7 @@ import { TrackingBadge } from './AmmoTypes';
 interface BatchDetail { batch_number: string; available: number; quantity: number }
 
 interface IssuanceRow {
-  ammo_type_id: number;
+  ammo_type_id: string;
   tracking_type: TrackingType;
   quantity: number;                 // qty type
   batch_details: BatchDetail[];     // batch type
@@ -20,7 +20,7 @@ interface IssuanceRow {
 }
 
 const emptyRow = (): IssuanceRow => ({
-  ammo_type_id: 0, tracking_type: 'qty', quantity: 1,
+  ammo_type_id: '', tracking_type: 'qty', quantity: 1,
   batch_details: [], serial_numbers: [],
   available_serials: [], available_batches: [], serial_filter: '',
 });

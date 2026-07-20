@@ -197,7 +197,7 @@ export default function Dashboard() {
               <label className="text-sm font-medium text-gray-700 block mb-2">בחר מסגרת:</label>
               <select
                 value={selectedUnitId || ''}
-                onChange={(e) => setSelectedUnitId(e.target.value ? Number(e.target.value) : null)}
+                onChange={(e) => setSelectedUnitId(e.target.value || null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">-- בחר מסגרת --</option>

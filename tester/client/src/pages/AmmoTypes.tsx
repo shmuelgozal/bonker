@@ -78,7 +78,7 @@ export default function AmmoTypes() {
     setShowForm(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm('למחוק פריט זה?')) return;
     try {
       await deleteAmmoType(id);

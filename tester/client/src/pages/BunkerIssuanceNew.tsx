@@ -47,7 +47,8 @@ export default function BunkerIssuanceNew() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId), getBunkers()]).then(([b, types, inv, bunkers]) => {
+    if (bunkerId) {
+      Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId), getBunkers()]).then(([b, types, inv, bunkers]) => {
       setBunker(b); setAmmoTypes(types); setInventory(inv); setAllBunkers(bunkers);
     });
   }, [bunkerId]);
@@ -107,7 +108,7 @@ export default function BunkerIssuanceNew() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validRows = rows.filter(r => r.ammo_type_id > 0);
+    const validRows = rows.filter(r => r.ammo_type_id);
     if (!validRows.length) { toast.error('הוסף לפחות פריט אחד'); return; }
 
     // Build items payload
