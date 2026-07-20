@@ -10,6 +10,7 @@ import BunkerCountNew from './pages/BunkerCountNew';
 import BunkerIssuanceNew from './pages/BunkerIssuanceNew';
 import BunkerStandard from './pages/BunkerStandard';
 import IssuanceDetail from './pages/IssuanceDetail';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/bunkers/:id/issuances/:issuanceId" element={<IssuanceDetail />} />
           <Route path="/bunkers/:id/standard" element={<BunkerStandard />} />
           <Route path="/ammo-types" element={<AmmoTypes />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

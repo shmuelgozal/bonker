@@ -4,32 +4,7 @@ import toast from 'react-hot-toast';
 import { getAmmoTypes, getStandard, updateStandard, getGaps, getBunker } from '../api/client';
 import type { AmmoType, GapItem, Bunker } from '../types';
 import { ArrowRight, Save, AlertTriangle, CheckCircle, ShieldCheck, Download, ClipboardList } from 'lucide-react';
-
-// ─── Templates ─────────────────────────────────────────────────────────────
-// Values taken from "תו תקן ע"פ משימות" document; only תחמושת (ammo) items.
-// Matched at runtime by ammo-type name (case-insensitive).
-const STANDARD_TEMPLATES: Record<string, Record<string, number>> = {
-  'רכב סי': {
-    'גומי': 40, 'תחמיש': 58, 'מטול לתאורה': 4, 'מטול גז': 28,
-    'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רימון עשן': 1,
-    'תופי': 1, 'רומה גומי': 1, 'רימון רסס': 8, 'לאו': 1,
-  },
-  'רכב חפ"ק': {
-    'גומי': 40, 'תחמיש': 58, 'מטול לתאורה': 4, 'מטול גז': 28,
-    'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8,
-    'רומה גומי': 1, 'רימון רסס': 8, 'לאו': 2,
-  },
-  'רכב כיתת כוננות': {
-    'גומי': 24, 'תחמיש': 58, 'מטול לתאורה': 10, 'מטול גז': 28,
-    'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רימון עשן': 3,
-    'תופי': 1, 'רומה גומי': 2, 'רימון רסס': 16, 'לאו': 2,
-  },
-  'פילבוקס': {
-    'גומי': 48, 'תחמיש': 116, 'מטול לתאורה': 20, 'מטול גז': 56,
-    'ספוג': 56, 'רימון הלם': 36, 'רימון גז': 16, 'רימון עשן': 3,
-    'תופי': 2, 'רומה גומי': 2,
-  },
-};
+import { getTemplates } from '../utils/standardTemplates';
 
 export default function BunkerStandard() {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +21,7 @@ export default function BunkerStandard() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
   const applyTemplate = (templateName: string) => {
-    const tpl = STANDARD_TEMPLATES[templateName];
+    const tpl = getTemplates()[templateName];
     if (!tpl) return;
     const updated: Record<string, string> = { ...standardValues };
     ammoTypes.forEach(t => {
@@ -292,7 +267,7 @@ export default function BunkerStandard() {
               onChange={e => setSelectedTemplate(e.target.value)}
             >
               <option value="">— בחר טמפלייט —</option>
-              {Object.keys(STANDARD_TEMPLATES).map(name => (
+              {Object.keys(getTemplates()).map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
             </select>
