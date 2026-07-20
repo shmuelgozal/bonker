@@ -9,4 +9,3 @@
 
 [build.environment]
   VITE_API_BASE_URL = "https://bonker-api.onrender.com"
-  NODE_ENV = "production"
