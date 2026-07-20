@@ -67,10 +67,10 @@ export default function BunkerIssuanceNew() {
     let batch_details: BatchDetail[] = [];
 
     if (trackingType === 'batch') {
-      available_batches = await getBatches(bunkerId, ammoTypeId!);
+      available_batches = await getBatches(bunkerId!, ammoTypeId);
       batch_details = available_batches.map(b => ({ batch_number: b.batch_number, available: b.quantity, quantity: 0 }));
     } else if (trackingType === 'serial') {
-      available_serials = await getSerials(bunkerId, ammoTypeId!, 'in_stock');
+      available_serials = await getSerials(bunkerId!, ammoTypeId, 'in_stock');
     }
 
     setRows(prev => prev.map((r, i) => i === rowIdx ? {

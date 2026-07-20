@@ -45,6 +45,7 @@ export default function BunkerIssuanceNew() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!bunkerId) return;
     Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId)]).then(([b, types, inv]) => {
       setBunker(b); setAmmoTypes(types); setInventory(inv);
     });
@@ -63,10 +64,10 @@ export default function BunkerIssuanceNew() {
     let batch_details: BatchDetail[] = [];
 
     if (trackingType === 'batch') {
-      available_batches = await getBatches(bunkerId, ammoTypeId!);
+      available_batches = await getBatches(bunkerId!, ammoTypeId);
       batch_details = available_batches.map(b => ({ batch_number: b.batch_number, available: b.quantity, quantity: 0 }));
     } else if (trackingType === 'serial') {
-      available_serials = await getSerials(bunkerId, ammoTypeId!, 'in_stock');
+      available_serials = await getSerials(bunkerId!, ammoTypeId, 'in_stock');
     }
 
     setRows(prev => prev.map((r, i) => i === rowIdx ? {
@@ -105,7 +106,7 @@ export default function BunkerIssuanceNew() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validRows = rows.filter(r => r.ammo_type_id > 0);
+    const validRows = rows.filter(r => r.ammo_type_id);
     if (!validRows.length) { toast.error('הוסף לפחות פריט אחד'); return; }
 
     // Build items payload
@@ -143,7 +144,7 @@ export default function BunkerIssuanceNew() {
       formData.append('notes', notes);
       formData.append('items', JSON.stringify(items));
       if (imageFile) formData.append('form_image', imageFile);
-      await createIssuance(bunkerId, formData);
+      await createIssuance(bunkerId!, formData);
       toast.success('הנפקה נשמרה ומלאי עודכן');
       navigate(`/bunkers/${bunkerId}`);
     } catch { toast.error('שגיאה בשמירת ההנפקה'); }
@@ -197,9 +198,9 @@ export default function BunkerIssuanceNew() {
                         </optgroup>
                       ))}
                     </select>
-                    {row.ammo_type_id > 0 && <div className="mt-1"><TrackingBadge type={row.tracking_type} /></div>}
+                    {row.ammo_type_id && <div className="mt-1"><TrackingBadge type={row.tracking_type} /></div>}
                   </div>
-                  {row.tracking_type === 'qty' && row.ammo_type_id > 0 && (
+                  {row.tracking_type === 'qty' && row.ammo_type_id && (
                     <input type="number" min="1" className="input w-28 text-center"
                       value={row.quantity} onChange={e => setRows(prev => prev.map((r, idx) => idx === i ? { ...r, quantity: Number(e.target.value) } : r))} />
                   )}
