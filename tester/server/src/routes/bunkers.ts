@@ -1,97 +1,160 @@
 import { Router, Request, Response } from 'express';
-import db from '../db/database';
+import { Bunker, Unit, Inventory } from '../db/mongo';
 
 const router = Router();
 
 // GET /api/bunkers
-router.get('/', (_req: Request, res: Response) => {
-  const bunkers = db.prepare(`
-    SELECT b.*,
-      u.name as unit_name,
-      u.type as unit_type,
-      (SELECT COUNT(DISTINCT ammo_type_id) FROM inventory WHERE bunker_id = b.id AND quantity > 0) as stocked_types,
-      (SELECT COUNT(*) FROM issuances WHERE bunker_id = b.id) as issuance_count
-    FROM bunkers b
-    LEFT JOIN units u ON b.unit_id = u.id
-    ORDER BY b.created_at DESC
-  `).all();
-  res.json(bunkers);
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const bunkers = await Bunker.find().sort({ created_at: -1 }).lean();
+    const result = await Promise.all(
+      bunkers.map(async (b: any) => {
+        const unit = b.unit_id ? await Unit.findById(b.unit_id).lean() : null;
+        const stockedTypes = await Inventory.countDocuments({ 
+          bunker_id: b._id, 
+          quantity: { $gt: 0 } 
+        });
+        return {
+          id: b._id,
+          name: b.name,
+          location: b.location,
+          description: b.description,
+          unit_id: b.unit_id,
+          unit_name: unit?.name,
+          unit_type: unit?.type,
+          stocked_types: stockedTypes,
+          issuance_count: 0,
+          created_at: b.created_at,
+        };
+      })
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch bunkers' });
+  }
 });
 
 // POST /api/bunkers
-router.post('/', (req: Request, res: Response) => {
-  const { name, location, description, unit_id } = req.body as { name: string; location?: string; description?: string; unit_id?: number | null };
-  if (!name?.trim()) {
-    return res.status(400).json({ error: 'שם הבונקר הוא שדה חובה' });
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, location, description, unit_id } = req.body as { name: string; location?: string; description?: string; unit_id?: string | null };
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'שם הבונקר הוא שדה חובה' });
+    }
+    const bunker = await Bunker.create({
+      name: name.trim(),
+      location: location?.trim() || undefined,
+      description: description?.trim() || undefined,
+      unit_id: unit_id || undefined,
+      created_at: new Date(),
+    });
+    res.status(201).json({
+      id: bunker._id,
+      name: bunker.name,
+      location: bunker.location,
+      description: bunker.description,
+      unit_id: bunker.unit_id,
+      created_at: bunker.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create bunker' });
   }
-  const result = db.prepare(
-    'INSERT INTO bunkers (name, location, description, unit_id) VALUES (?, ?, ?, ?)'
-  ).run(name.trim(), location?.trim() || null, description?.trim() || null, unit_id || null);
-
-  const bunker = db.prepare('SELECT * FROM bunkers WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(bunker);
 });
 
 // GET /api/bunkers/:id
-router.get('/:id', (req: Request, res: Response) => {
-  const bunker = db.prepare(`
-    SELECT b.*, u.name as unit_name, u.type as unit_type
-    FROM bunkers b
-    LEFT JOIN units u ON b.unit_id = u.id
-    WHERE b.id = ?
-  `).get(req.params.id);
-  if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
-  res.json(bunker);
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const bunker = await Bunker.findById(req.params.id).lean();
+    if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
+    
+    const unit = bunker.unit_id ? await Unit.findById(bunker.unit_id).lean() : null;
+    res.json({
+      id: bunker._id,
+      name: bunker.name,
+      location: bunker.location,
+      description: bunker.description,
+      unit_id: bunker.unit_id,
+      unit_name: unit?.name,
+      unit_type: unit?.type,
+      created_at: bunker.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch bunker' });
+  }
 });
 
 // PUT /api/bunkers/:id/link-unit - Link or unlink a bunker to/from a unit
-router.put('/:id/link-unit', (req: Request, res: Response) => {
-  const { unit_id } = req.body as { unit_id: number | null };
-  const exists = db.prepare('SELECT id FROM bunkers WHERE id = ?').get(req.params.id);
-  if (!exists) return res.status(404).json({ error: 'בונקר לא נמצא' });
+router.put('/:id/link-unit', async (req: Request, res: Response) => {
+  try {
+    const { unit_id } = req.body as { unit_id: string | null };
+    const bunker = await Bunker.findById(req.params.id);
+    if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
 
-  if (unit_id !== null && unit_id !== undefined) {
-    const unitExists = db.prepare('SELECT id FROM units WHERE id = ?').get(unit_id);
-    if (!unitExists) return res.status(404).json({ error: 'יחידה לא נמצאה' });
+    if (unit_id !== null && unit_id !== undefined) {
+      const unit = await Unit.findById(unit_id);
+      if (!unit) return res.status(404).json({ error: 'יחידה לא נמצאה' });
+    }
+
+    const updated = await Bunker.findByIdAndUpdate(req.params.id, { unit_id: unit_id || undefined }, { new: true }).lean();
+    const unit = updated?.unit_id ? await Unit.findById(updated.unit_id).lean() : null;
+    res.json({
+      id: updated?._id,
+      name: updated?.name,
+      location: updated?.location,
+      description: updated?.description,
+      unit_id: updated?.unit_id,
+      unit_name: unit?.name,
+      unit_type: unit?.type,
+      created_at: updated?.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to link unit' });
   }
-
-  db.prepare('UPDATE bunkers SET unit_id = ? WHERE id = ?').run(unit_id ?? null, req.params.id);
-  const bunker = db.prepare(`
-    SELECT b.*, u.name as unit_name, u.type as unit_type
-    FROM bunkers b LEFT JOIN units u ON b.unit_id = u.id
-    WHERE b.id = ?
-  `).get(req.params.id);
-  res.json(bunker);
 });
 
 // PUT /api/bunkers/:id
-router.put('/:id', (req: Request, res: Response) => {
-  const { name, location, description } = req.body as { name: string; location?: string; description?: string };
-  if (!name?.trim()) {
-    return res.status(400).json({ error: 'שם הבונקר הוא שדה חובה' });
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { name, location, description } = req.body as { name: string; location?: string; description?: string };
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'שם הבונקר הוא שדה חובה' });
+    }
+    const bunker = await Bunker.findById(req.params.id);
+    if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
+
+    const updated = await Bunker.findByIdAndUpdate(req.params.id, {
+      name: name.trim(),
+      location: location?.trim() || undefined,
+      description: description?.trim() || undefined,
+    }, { new: true }).lean();
+
+    const unit = updated?.unit_id ? await Unit.findById(updated.unit_id).lean() : null;
+    res.json({
+      id: updated?._id,
+      name: updated?.name,
+      location: updated?.location,
+      description: updated?.description,
+      unit_id: updated?.unit_id,
+      unit_name: unit?.name,
+      unit_type: unit?.type,
+      created_at: updated?.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update bunker' });
   }
-  const exists = db.prepare('SELECT id FROM bunkers WHERE id = ?').get(req.params.id);
-  if (!exists) return res.status(404).json({ error: 'בונקר לא נמצא' });
-
-  db.prepare(
-    'UPDATE bunkers SET name = ?, location = ?, description = ? WHERE id = ?'
-  ).run(name.trim(), location?.trim() || null, description?.trim() || null, req.params.id);
-
-  const bunker = db.prepare(`
-    SELECT b.*, u.name as unit_name, u.type as unit_type
-    FROM bunkers b LEFT JOIN units u ON b.unit_id = u.id
-    WHERE b.id = ?
-  `).get(req.params.id);
-  res.json(bunker);
 });
 
 // DELETE /api/bunkers/:id
-router.delete('/:id', (req: Request, res: Response) => {
-  const exists = db.prepare('SELECT id FROM bunkers WHERE id = ?').get(req.params.id);
-  if (!exists) return res.status(404).json({ error: 'בונקר לא נמצא' });
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const bunker = await Bunker.findById(req.params.id);
+    if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
 
-  db.prepare('DELETE FROM bunkers WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+    await Bunker.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete bunker' });
+  }
 });
 
 export default router;

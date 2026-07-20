@@ -1,62 +1,96 @@
 import { Router, Request, Response } from 'express';
-import db from '../db/database';
+import { AmmoType, InventoryEntry } from '../db/mongo';
 
 const router = Router();
 
 // GET /api/ammo-types
-router.get('/', (_req: Request, res: Response) => {
-  const types = db.prepare(
-    'SELECT * FROM ammo_types ORDER BY category, name'
-  ).all();
-  res.json(types);
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const types = await AmmoType.find().sort({ category: 1, name: 1 });
+    res.json(types.map(t => ({
+      id: t._id,
+      name: t.name,
+      unit: t.unit,
+      category: t.category,
+      tracking_type: t.tracking_type,
+      created_at: t.created_at,
+    })));
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch ammo types' });
+  }
 });
 
 // POST /api/ammo-types
-router.post('/', (req: Request, res: Response) => {
-  const { name, unit, category, tracking_type } = req.body as { name: string; unit?: string; category?: string; tracking_type?: string };
-  if (!name?.trim()) {
-    return res.status(400).json({ error: 'שם הפריט הוא שדה חובה' });
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, unit, category, tracking_type } = req.body as { name: string; unit?: string; category?: string; tracking_type?: string };
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'שם הפריט הוא שדה חובה' });
+    }
+    const ammoType = await AmmoType.create({
+      name: name.trim(),
+      unit: unit?.trim() || "יח'",
+      category: category?.trim() || 'תחמושת',
+      tracking_type: tracking_type?.trim() || 'qty',
+      created_at: new Date(),
+    });
+    res.status(201).json({
+      id: ammoType._id,
+      name: ammoType.name,
+      unit: ammoType.unit,
+      category: ammoType.category,
+      tracking_type: ammoType.tracking_type,
+      created_at: ammoType.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create ammo type' });
   }
-  const result = db.prepare(
-    "INSERT INTO ammo_types (name, unit, category, tracking_type) VALUES (?, ?, ?, ?)"
-  ).run(name.trim(), unit?.trim() || "יח'", category?.trim() || 'תחמושת', tracking_type?.trim() || 'qty');
-
-  const ammoType = db.prepare('SELECT * FROM ammo_types WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(ammoType);
 });
 
 // PUT /api/ammo-types/:id
-router.put('/:id', (req: Request, res: Response) => {
-  const { name, unit, category, tracking_type } = req.body as { name: string; unit?: string; category?: string; tracking_type?: string };
-  if (!name?.trim()) {
-    return res.status(400).json({ error: 'שם הפריט הוא שדה חובה' });
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { name, unit, category, tracking_type } = req.body as { name: string; unit?: string; category?: string; tracking_type?: string };
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'שם הפריט הוא שדה חובה' });
+    }
+    const ammoType = await AmmoType.findByIdAndUpdate(req.params.id, {
+      name: name.trim(),
+      unit: unit?.trim() || "יח'",
+      category: category?.trim() || 'תחמושת',
+      tracking_type: tracking_type?.trim() || 'qty',
+    }, { new: true });
+    if (!ammoType) return res.status(404).json({ error: 'פריט לא נמצא' });
+    res.json({
+      id: ammoType._id,
+      name: ammoType.name,
+      unit: ammoType.unit,
+      category: ammoType.category,
+      tracking_type: ammoType.tracking_type,
+      created_at: ammoType.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update ammo type' });
   }
-  const exists = db.prepare('SELECT id FROM ammo_types WHERE id = ?').get(req.params.id);
-  if (!exists) return res.status(404).json({ error: 'פריט לא נמצא' });
-
-  db.prepare(
-    'UPDATE ammo_types SET name = ?, unit = ?, category = ?, tracking_type = ? WHERE id = ?'
-  ).run(name.trim(), unit?.trim() || "יח'", category?.trim() || 'תחמושת', tracking_type?.trim() || 'qty', req.params.id);
-
-  const ammoType = db.prepare('SELECT * FROM ammo_types WHERE id = ?').get(req.params.id);
-  res.json(ammoType);
 });
 
 // DELETE /api/ammo-types/:id
-router.delete('/:id', (req: Request, res: Response) => {
-  const exists = db.prepare('SELECT id FROM ammo_types WHERE id = ?').get(req.params.id);
-  if (!exists) return res.status(404).json({ error: 'פריט לא נמצא' });
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const ammoType = await AmmoType.findById(req.params.id);
+    if (!ammoType) return res.status(404).json({ error: 'פריט לא נמצא' });
 
-  // Check if in use
-  const inUse = db.prepare(
-    'SELECT COUNT(*) as cnt FROM inventory_entries WHERE ammo_type_id = ?'
-  ).get(req.params.id) as { cnt: number };
-  if (inUse.cnt > 0) {
-    return res.status(400).json({ error: 'לא ניתן למחוק פריט שנמצא בשימוש' });
+    // Check if in use
+    const inUse = await InventoryEntry.countDocuments({ ammo_type_id: req.params.id });
+    if (inUse > 0) {
+      return res.status(400).json({ error: 'לא ניתן למחוק פריט שנמצא בשימוש' });
+    }
+
+    await AmmoType.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete ammo type' });
   }
-
-  db.prepare('DELETE FROM ammo_types WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
 });
 
 export default router;

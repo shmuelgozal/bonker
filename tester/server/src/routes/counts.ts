@@ -1,137 +1,157 @@
 import { Router, Request, Response } from 'express';
-import db, { runInTransaction } from '../db/database';
+import { InventoryCount, InventoryCountItem, AmmoType, Bunker } from '../db/mongo';
 
 const router = Router({ mergeParams: true });
 
 // GET /api/bunkers/:id/counts
-router.get('/', (req: Request, res: Response) => {
-  const counts = db.prepare(`
-    SELECT c.*,
-      (SELECT COUNT(*) FROM inventory_count_items WHERE count_id = c.id) as item_count
-    FROM inventory_counts c
-    WHERE c.bunker_id = ?
-    ORDER BY c.created_at DESC
-  `).all(req.params.id);
-  res.json(counts);
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const counts = await InventoryCount.find({ bunker_id: req.params.id }).sort({ created_at: -1 }).lean();
+    const result = await Promise.all(
+      (counts as any[]).map(async (c) => {
+        const itemCount = await InventoryCountItem.countDocuments({ count_id: c._id });
+        return {
+          id: c._id,
+          bunker_id: c.bunker_id,
+          count_date: c.count_date,
+          notes: c.notes,
+          status: c.status,
+          created_at: c.created_at,
+          item_count: itemCount,
+        };
+      })
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch counts' });
+  }
 });
 
 // POST /api/bunkers/:id/counts — create new count
-router.post('/', (req: Request, res: Response) => {
-  const { count_date, notes, items } = req.body as {
-    count_date?: string;
-    notes?: string;
-    items: Array<{ ammo_type_id: number; counted_qty: number }>;
-  };
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { count_date, notes, items } = req.body as {
+      count_date?: string;
+      notes?: string;
+      items?: Array<{ ammo_type_id: string; counted_qty: number }>;
+    };
 
-  const bunkerExists = db.prepare('SELECT id FROM bunkers WHERE id = ?').get(req.params.id);
-  if (!bunkerExists) return res.status(404).json({ error: 'בונקר לא נמצא' });
+    const bunker = await Bunker.findById(req.params.id);
+    if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
 
-  const countId = runInTransaction(() => {
-    const result = db.prepare(
-      "INSERT INTO inventory_counts (bunker_id, count_date, notes, status) VALUES (?, ?, ?, 'draft')"
-    ).run(req.params.id, count_date || null, notes || null);
-
-    const countId = result.lastInsertRowid;
+    const count = await InventoryCount.create({
+      bunker_id: req.params.id,
+      count_date: count_date ? new Date(count_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      notes: notes || undefined,
+      status: 'draft',
+      created_at: new Date(),
+    });
 
     if (items && items.length > 0) {
-      const insertItem = db.prepare(
-        'INSERT INTO inventory_count_items (count_id, ammo_type_id, counted_qty) VALUES (?, ?, ?)'
+      await InventoryCountItem.create(
+        items.map(item => ({
+          count_id: count._id,
+          ammo_type_id: item.ammo_type_id,
+          counted_qty: item.counted_qty || 0,
+        }))
       );
-      for (const item of items) {
-        insertItem.run(countId, item.ammo_type_id, item.counted_qty ?? 0);
-      }
     }
 
-    return countId;
-  });
-  const count = db.prepare('SELECT * FROM inventory_counts WHERE id = ?').get(countId);
-  res.status(201).json(count);
+    res.status(201).json({
+      id: count._id,
+      bunker_id: count.bunker_id,
+      count_date: count.count_date,
+      notes: count.notes,
+      status: count.status,
+      created_at: count.created_at,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create count' });
+  }
 });
 
 // GET /api/bunkers/:id/counts/:countId
-router.get('/:countId', (req: Request, res: Response) => {
-  const count = db.prepare(
-    'SELECT * FROM inventory_counts WHERE id = ? AND bunker_id = ?'
-  ).get(req.params.countId, req.params.id);
+router.get('/:countId', async (req: Request, res: Response) => {
+  try {
+    const count = await InventoryCount.findOne({
+      _id: req.params.countId,
+      bunker_id: req.params.id,
+    }).lean();
 
-  if (!count) return res.status(404).json({ error: 'ספירה לא נמצאה' });
+    if (!count) return res.status(404).json({ error: 'ספירה לא נמצאה' });
 
-  const items = db.prepare(`
-    SELECT ici.*, at.name as ammo_name, at.unit, at.category
-    FROM inventory_count_items ici
-    JOIN ammo_types at ON at.id = ici.ammo_type_id
-    WHERE ici.count_id = ?
-    ORDER BY at.category, at.name
-  `).all(req.params.countId);
+    const items = await InventoryCountItem.find({ count_id: req.params.countId }).lean();
+    
+    const itemsWithAmmo = await Promise.all(
+      (items as any[]).map(async (i) => {
+        const ammo = await AmmoType.findById(i.ammo_type_id).lean();
+        return {
+          id: i._id,
+          count_id: i.count_id,
+          ammo_type_id: i.ammo_type_id,
+          counted_qty: i.counted_qty,
+          ammo_name: ammo?.name,
+          unit: ammo?.unit,
+          category: ammo?.category,
+        };
+      })
+    );
 
-  res.json({ ...(count as object), items });
+    res.json({
+      id: count._id,
+      bunker_id: count.bunker_id,
+      count_date: count.count_date,
+      notes: count.notes,
+      status: count.status,
+      created_at: count.created_at,
+      items: itemsWithAmmo.sort((a, b) => {
+        if (a.category !== b.category) return (a.category || '').localeCompare(b.category || '');
+        return (a.ammo_name || '').localeCompare(b.ammo_name || '');
+      }),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch count' });
+  }
 });
 
-// PUT /api/bunkers/:id/counts/:countId — complete count (optionally sync inventory)
-router.put('/:countId', (req: Request, res: Response) => {
-  const { status, notes, items, sync_inventory } = req.body as {
-    status?: string;
-    notes?: string;
-    items?: Array<{ ammo_type_id: number; counted_qty: number }>;
-    sync_inventory?: boolean;
-  };
+// PUT /api/bunkers/:id/counts/:countId
+router.put('/:countId', async (req: Request, res: Response) => {
+  try {
+    const { status, notes, items } = req.body as {
+      status?: string;
+      notes?: string;
+      items?: Array<{ ammo_type_id: string; counted_qty: number }>;
+    };
 
-  const count = db.prepare(
-    'SELECT * FROM inventory_counts WHERE id = ? AND bunker_id = ?'
-  ).get(req.params.countId, req.params.id) as { id: number; status: string } | undefined;
+    const count = await InventoryCount.findOne({
+      _id: req.params.countId,
+      bunker_id: req.params.id,
+    });
 
-  if (!count) return res.status(404).json({ error: 'ספירה לא נמצאה' });
+    if (!count) return res.status(404).json({ error: 'ספירה לא נמצאה' });
 
-  runInTransaction(() => {
     if (notes !== undefined || status !== undefined) {
-      db.prepare(
-        'UPDATE inventory_counts SET status = COALESCE(?, status), notes = COALESCE(?, notes) WHERE id = ?'
-      ).run(status || null, notes || null, req.params.countId);
+      await InventoryCount.findByIdAndUpdate(req.params.countId, {
+        status: status || count.status,
+        notes: notes !== undefined ? notes : count.notes,
+      });
     }
 
     if (items && items.length > 0) {
-      const upsertItem = db.prepare(`
-        INSERT INTO inventory_count_items (count_id, ammo_type_id, counted_qty)
-        VALUES (?, ?, ?)
-        ON CONFLICT(count_id, ammo_type_id) DO UPDATE SET counted_qty = excluded.counted_qty
-      `);
       for (const item of items) {
-        upsertItem.run(req.params.countId, item.ammo_type_id, item.counted_qty ?? 0);
+        await InventoryCountItem.findOneAndUpdate(
+          { count_id: req.params.countId, ammo_type_id: item.ammo_type_id },
+          { counted_qty: item.counted_qty },
+          { upsert: true }
+        );
       }
     }
 
-    // If completing count and syncing inventory
-    if (status === 'complete' && sync_inventory) {
-      const countItems = db.prepare(
-        'SELECT * FROM inventory_count_items WHERE count_id = ?'
-      ).all(req.params.countId) as Array<{ ammo_type_id: number; counted_qty: number }>;
-
-      for (const item of countItems) {
-        const current = db.prepare(
-          'SELECT quantity FROM inventory WHERE bunker_id = ? AND ammo_type_id = ?'
-        ).get(req.params.id, item.ammo_type_id) as { quantity: number } | undefined;
-
-        const delta = item.counted_qty - (current?.quantity ?? 0);
-
-        db.prepare(`
-          INSERT INTO inventory (bunker_id, ammo_type_id, quantity, updated_at)
-          VALUES (?, ?, ?, datetime('now','localtime'))
-          ON CONFLICT(bunker_id, ammo_type_id) DO UPDATE SET
-            quantity = excluded.quantity,
-            updated_at = datetime('now','localtime')
-        `).run(req.params.id, item.ammo_type_id, item.counted_qty);
-
-        if (delta !== 0) {
-          db.prepare(
-            "INSERT INTO inventory_entries (bunker_id, ammo_type_id, quantity_delta, entry_type, notes) VALUES (?, ?, ?, 'count', ?)"
-          ).run(req.params.id, item.ammo_type_id, delta, `סנכרון מספירה #${req.params.countId}`);
-        }
-      }
-    }
-  });
-
-  const updated = db.prepare('SELECT * FROM inventory_counts WHERE id = ?').get(req.params.countId);
-  res.json(updated);
+    const updated = await InventoryCount.findById(req.params.countId).lean();
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update count' });
+  }
 });
 
 export default router;
