@@ -103,50 +103,56 @@ export default function BunkerDetail() {
         <span className="text-gray-700 text-sm font-medium">{bunker.name}</span>
       </div>
 
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{bunker.name}</h1>
+      <div className="flex items-start justify-between mb-4 gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{bunker.name}</h1>
           {bunker.location && <p className="text-sm text-gray-500">{bunker.location}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
           {gaps && gaps.summary.total > 0 && (
             hasDeficit ? (
-              <span className="badge-danger flex items-center gap-1 text-sm px-3 py-1">
-                <AlertTriangle size={14} /> {gaps.summary.deficit} פערים
+              <span className="badge-danger flex items-center gap-1 text-xs px-2 py-1">
+                <AlertTriangle size={12} /> {gaps.summary.deficit} פערים
               </span>
             ) : (
-              <span className="badge-ok flex items-center gap-1 text-sm px-3 py-1">
-                <CheckCircle size={14} /> תקין
+              <span className="badge-ok flex items-center gap-1 text-xs px-2 py-1">
+                <CheckCircle size={12} /> תקין
               </span>
             )
           )}
-          <Link to={`/bunkers/${bunkerId}/standard`} className="btn-secondary flex items-center gap-1.5 text-sm">
-            <ShieldCheck size={15} />
-            תו תקן
-          </Link>
-          <Link to={`/bunkers/${bunkerId}/count/new`} className="btn-secondary flex items-center gap-1.5 text-sm">
-            <ClipboardList size={15} />
-            ספירת מלאי
-          </Link>
-          <Link to={`/bunkers/${bunkerId}/issuance/new`} className="btn-secondary flex items-center gap-1.5 text-sm">
-            <ClipboardList size={15} />
-            הנפקה חדשה
-          </Link>
-          <Link to={`/bunkers/${bunkerId}/inventory/add`} className="btn-primary flex items-center gap-1.5 text-sm">
-            <Plus size={15} />
-            הזנת מלאי
-          </Link>
+          <div className="flex items-center gap-1 flex-wrap justify-end">
+            <Link to={`/bunkers/${bunkerId}/standard`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
+              <ShieldCheck size={13} />
+              <span className="hidden sm:inline">תו תקן</span>
+              <span className="sm:hidden">תקן</span>
+            </Link>
+            <Link to={`/bunkers/${bunkerId}/count/new`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
+              <ClipboardList size={13} />
+              <span className="hidden sm:inline">ספירת מלאי</span>
+              <span className="sm:hidden">ספירה</span>
+            </Link>
+            <Link to={`/bunkers/${bunkerId}/issuance/new`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
+              <ClipboardList size={13} />
+              <span className="hidden sm:inline">הנפקה חדשה</span>
+              <span className="sm:hidden">הנפקה</span>
+            </Link>
+            <Link to={`/bunkers/${bunkerId}/inventory/add`} className="btn-primary flex items-center gap-1 text-xs px-2 py-1.5">
+              <Plus size={13} />
+              <span className="hidden sm:inline">הזנת מלאי</span>
+              <span className="sm:hidden">הזנה</span>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-4">
-        <nav className="flex gap-1">
+        <nav className="flex gap-1 overflow-x-auto scrollbar-hide">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -180,10 +186,10 @@ export default function BunkerDetail() {
                     <thead>
                       <tr>
                         <th className="table-th">שם הפריט</th>
-                        <th className="table-th">יח"ש</th>
-                        <th className="table-th">אופן ניהול</th>
+                        <th className="table-th hidden sm:table-cell">יח"ש</th>
+                        <th className="table-th hidden sm:table-cell">אופן ניהול</th>
                         <th className="table-th text-left">כמות</th>
-                        <th className="table-th">עדכון אחרון</th>
+                        <th className="table-th hidden md:table-cell">עדכון אחרון</th>
                         <th className="table-th"></th>
                       </tr>
                     </thead>
@@ -192,10 +198,10 @@ export default function BunkerDetail() {
                         <>
                           <tr key={item.id} className="hover:bg-gray-50">
                             <td className="table-td font-medium">{item.ammo_name}</td>
-                            <td className="table-td text-gray-500">{item.unit}</td>
-                            <td className="table-td"><TrackingBadge type={item.tracking_type} /></td>
+                            <td className="table-td text-gray-500 hidden sm:table-cell">{item.unit}</td>
+                            <td className="table-td hidden sm:table-cell"><TrackingBadge type={item.tracking_type} /></td>
                             <td className="table-td font-bold text-lg text-gray-900">{item.quantity}</td>
-                            <td className="table-td text-gray-400 text-xs">
+                            <td className="table-td text-gray-400 text-xs hidden md:table-cell">
                               {new Date(item.updated_at).toLocaleString('he-IL')}
                             </td>
                             <td className="table-td">
@@ -268,14 +274,14 @@ export default function BunkerDetail() {
                   <th className="table-th">פריט</th>
                   <th className="table-th">סוג</th>
                   <th className="table-th">כמות</th>
-                  <th className="table-th">הערות</th>
+                  <th className="table-th hidden sm:table-cell">הערות</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {history.map(entry => (
                   <tr key={entry.id} className="hover:bg-gray-50">
-                    <td className="table-td text-xs text-gray-400">
-                      {new Date(entry.created_at).toLocaleString('he-IL')}
+                    <td className="table-td text-xs text-gray-400 whitespace-nowrap">
+                      {new Date(entry.created_at).toLocaleDateString('he-IL')}
                     </td>
                     <td className="table-td font-medium">{entry.ammo_name}</td>
                     <td className="table-td">
@@ -322,8 +328,8 @@ export default function BunkerDetail() {
                     <th className="table-th">תאריך ספירה</th>
                     <th className="table-th">סטטוס</th>
                     <th className="table-th">פריטים</th>
-                    <th className="table-th">הערות</th>
-                    <th className="table-th">נוצר</th>
+                    <th className="table-th hidden sm:table-cell">הערות</th>
+                    <th className="table-th hidden sm:table-cell">נוצר</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -336,8 +342,8 @@ export default function BunkerDetail() {
                         </span>
                       </td>
                       <td className="table-td">{c.item_count ?? 0}</td>
-                      <td className="table-td text-gray-400 text-xs">{c.notes || '—'}</td>
-                      <td className="table-td text-gray-400 text-xs">
+                      <td className="table-td text-gray-400 text-xs hidden sm:table-cell">{c.notes || '—'}</td>
+                      <td className="table-td text-gray-400 text-xs hidden sm:table-cell">
                         {new Date(c.created_at).toLocaleString('he-IL')}
                       </td>
                     </tr>
@@ -368,24 +374,24 @@ export default function BunkerDetail() {
                   <tr>
                     <th className="table-th">תאריך</th>
                     <th className="table-th">מקבל</th>
-                    <th className="table-th">מ.א.</th>
-                    <th className="table-th">יחידה</th>
+                    <th className="table-th hidden sm:table-cell">מ.א.</th>
+                    <th className="table-th hidden sm:table-cell">יחידה</th>
                     <th className="table-th">פריטים</th>
-                    <th className="table-th">סה"כ כמות</th>
-                    <th className="table-th">טופס</th>
+                    <th className="table-th">סה"כ</th>
+                    <th className="table-th hidden md:table-cell">טופס</th>
                     <th className="table-th"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {issuances.map(iss => (
                     <tr key={iss.id} className="hover:bg-gray-50">
-                      <td className="table-td text-sm">{iss.issue_date}</td>
+                      <td className="table-td text-sm whitespace-nowrap">{iss.issue_date}</td>
                       <td className="table-td font-medium">{iss.recipient_name || '—'}</td>
-                      <td className="table-td text-gray-500">{iss.recipient_id || '—'}</td>
-                      <td className="table-td text-gray-500">{iss.unit_name || '—'}</td>
+                      <td className="table-td text-gray-500 hidden sm:table-cell">{iss.recipient_id || '—'}</td>
+                      <td className="table-td text-gray-500 hidden sm:table-cell">{iss.unit_name || '—'}</td>
                       <td className="table-td">{iss.item_count ?? 0}</td>
                       <td className="table-td font-bold">{iss.total_qty ?? 0}</td>
-                      <td className="table-td">
+                      <td className="table-td hidden md:table-cell">
                         {iss.form_image_path ? (
                           <a href={iss.form_image_path} target="_blank" rel="noreferrer" className="text-blue-600 text-xs hover:underline">
                             צפה
