@@ -178,7 +178,8 @@ export default function AmmoTypes() {
               <span className="font-semibold text-gray-700">{category}</span>
               <span className="text-xs text-gray-400">{items.length} פריטים</span>
             </div>
-            <table className="w-full">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead>
                 <tr>
                   <th className="table-th">שם הפריט</th>
@@ -208,7 +209,8 @@ export default function AmmoTypes() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         ))
       )}

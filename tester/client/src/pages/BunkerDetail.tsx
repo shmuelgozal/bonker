@@ -175,7 +175,8 @@ export default function BunkerDetail() {
                 <div className="bg-gray-50 px-4 py-2 border-b border-gray-100">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{category}</span>
                 </div>
-                <table className="w-full">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
                     <thead>
                       <tr>
                         <th className="table-th">שם הפריט</th>
@@ -247,6 +248,7 @@ export default function BunkerDetail() {
                       ))}
                     </tbody>
                   </table>
+                </div>
               </div>
             ))
           )}
@@ -258,7 +260,8 @@ export default function BunkerDetail() {
           {history.length === 0 ? (
             <div className="p-10 text-center text-gray-400">אין היסטוריית הזנות</div>
           ) : (
-            <table className="w-full">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead>
                 <tr>
                   <th className="table-th">תאריך</th>
@@ -294,7 +297,8 @@ export default function BunkerDetail() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -311,7 +315,8 @@ export default function BunkerDetail() {
             {counts.length === 0 ? (
               <div className="p-10 text-center text-gray-400">אין ספירות רשומות</div>
             ) : (
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead>
                   <tr>
                     <th className="table-th">תאריך ספירה</th>
@@ -338,7 +343,8 @@ export default function BunkerDetail() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
         </div>
@@ -356,7 +362,8 @@ export default function BunkerDetail() {
             {issuances.length === 0 ? (
               <div className="p-10 text-center text-gray-400">אין הנפקות רשומות</div>
             ) : (
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead>
                   <tr>
                     <th className="table-th">תאריך</th>
@@ -396,7 +403,8 @@ export default function BunkerDetail() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
         </div>

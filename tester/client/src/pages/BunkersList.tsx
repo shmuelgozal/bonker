@@ -150,7 +150,8 @@ export default function BunkersList() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+            <table className="w-full">
             <thead>
               <tr>
                 <th className="table-th">שם הבונקר</th>
@@ -213,7 +214,8 @@ export default function BunkersList() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       )}
     </div>
