@@ -50,7 +50,7 @@ async function migrate() {
     const bunkerMap = new Map<number, string>();
     const ammoTypeMap = new Map<number, string>();
 
-    // Migrate Units
+    // Migrate Units (first pass - without parent_unit_id)
     console.log('📤 Migrating Units...');
     const units = db.prepare('SELECT * FROM units').all() as any[];
     for (const unit of units) {
@@ -64,12 +64,29 @@ async function migrate() {
     }
     console.log(`  ✅ Migrated ${units.length} units`);
 
-    // Migrate Bunkers
+    // Link parent_unit_id for hierarchical structure
+    console.log('🔗 Linking unit hierarchy...');
+    let hierarchyLinked = 0;
+    for (const unit of units) {
+      if (unit.parent_unit_id) {
+        const unitId = unitMap.get(unit.id);
+        const parentId = unitMap.get(unit.parent_unit_id);
+        if (unitId && parentId) {
+          await models.Unit.findByIdAndUpdate(unitId, { parent_unit_id: parentId });
+          hierarchyLinked++;
+        }
+      }
+    }
+    console.log(`  ✅ Linked ${hierarchyLinked} parent relationships`);
+
+    // Migrate Bunkers with unit_id
     console.log('📤 Migrating Bunkers...');
     const bunkers = db.prepare('SELECT * FROM bunkers').all() as any[];
     for (const bunker of bunkers) {
+      const unitId = bunker.unit_id ? unitMap.get(bunker.unit_id) : undefined;
       const created = await models.Bunker.create({
         name: bunker.name,
+        unit_id: unitId || undefined,
         location: bunker.location,
         description: bunker.description,
         created_at: bunker.created_at ? new Date(bunker.created_at) : new Date(),
@@ -169,7 +186,7 @@ async function migrate() {
     await mongoose.disconnect();
 
     console.log('\n✅ Migration completed successfully!');
-    console.log(`   Units: ${units.length} | Bunkers: ${bunkers.length} | Ammo Types: ${ammoTypes.length}`);
+    console.log(`   Units: ${units.length} (+ ${hierarchyLinked} parent links) | Bunkers: ${bunkers.length} | Ammo Types: ${ammoTypes.length}`);
     console.log(`   Inventory: ${inventoryMigrated}/${inventory.length} | Standards: ${standardsMigrated}/${standards.length} | Issuances: ${issuancesMigrated}/${issuances.length}`);
     process.exit(0);
   } catch (error) {
