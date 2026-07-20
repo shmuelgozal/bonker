@@ -8,4 +8,4 @@
   status = 200
 
 [build.environment]
-  VITE_API_BASE_URL = "https://bonker-api.onrender.com"
+  VITE_API_BASE_URL = "https://bonker-api.onrender.com/api"
