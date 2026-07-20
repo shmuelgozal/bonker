@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bonker-api
+    runtime: node
+    plan: free
+    buildCommand: cd tester/server && npm install && npm run build
+    startCommand: cd tester/server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGODB_URI
+        fromDatabase:
+          name: bonker
+          property: connectionString
+    publicUrl: https://bonker-api.onrender.com
+
+databases:
+  - name: bonker
+    databaseName: bonker
+    plan: free
