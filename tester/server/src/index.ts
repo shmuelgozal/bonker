@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { initDb } from './db/database';
+import { initDb } from './db/database-mongo';
 import bunkersRouter from './routes/bunkers';
 import ammoTypesRouter from './routes/ammoTypes';
 import inventoryRouter from './routes/inventory';
@@ -40,23 +40,32 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
 
-// Initialize DB
-initDb();
+// Initialize DB and start server
+async function startServer() {
+  try {
+    await initDb();
+    
+    // Routes
+    app.use('/api/units', unitsRouter);
+    app.use('/api/bunkers', bunkersRouter);
+    app.use('/api/ammo-types', ammoTypesRouter);
+    app.use('/api/bunkers/:id/inventory', inventoryRouter);
+    app.use('/api/bunkers/:id/counts', countsRouter);
+    app.use('/api/bunkers/:id/issuances', issuancesRouter);
+    app.use('/api/bunkers/:id/standard', standardsRouter);
 
-// Routes
-app.use('/api/units', unitsRouter);
-app.use('/api/bunkers', bunkersRouter);
-app.use('/api/ammo-types', ammoTypesRouter);
-app.use('/api/bunkers/:id/inventory', inventoryRouter);
-app.use('/api/bunkers/:id/counts', countsRouter);
-app.use('/api/bunkers/:id/issuances', issuancesRouter);
-app.use('/api/bunkers/:id/standard', standardsRouter);
+    // Health check
+    app.get('/api/health', (_req, res) => {
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
 
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+    app.listen(PORT, () => {
+      console.log(`🚀 Bunker server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
 
-app.listen(PORT, () => {
-  console.log(`🚀 Bunker server running on port ${PORT}`);
-});
+startServer();
