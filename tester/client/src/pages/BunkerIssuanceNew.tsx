@@ -49,8 +49,9 @@ export default function BunkerIssuanceNew() {
   useEffect(() => {
     if (bunkerId) {
       Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId), getBunkers()]).then(([b, types, inv, bunkers]) => {
-      setBunker(b); setAmmoTypes(types); setInventory(inv); setAllBunkers(bunkers);
-    });
+        setBunker(b); setAmmoTypes(types); setInventory(inv); setAllBunkers(bunkers);
+      });
+    }
   }, [bunkerId]);
 
   const stockOf = (ammoTypeId: string) =>
