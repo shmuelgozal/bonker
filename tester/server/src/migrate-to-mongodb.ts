@@ -35,6 +35,8 @@ async function migrate() {
     await models.Bunker.deleteMany({});
     await models.AmmoType.deleteMany({});
     await models.Inventory.deleteMany({});
+    await models.InventoryBatch.deleteMany({});
+    await models.InventorySerial.deleteMany({});
     await models.InventoryEntry.deleteMany({});
     await models.BunkerStandard.deleteMany({});
     await models.Issuance.deleteMany({});
@@ -129,6 +131,46 @@ async function migrate() {
     }
     console.log(`  ✅ Migrated ${inventoryMigrated}/${inventory.length} inventory records`);
 
+    // Migrate Inventory Batches
+    console.log('📤 Migrating Inventory Batches...');
+    const inventoryBatches = db.prepare('SELECT * FROM inventory_batches').all() as any[];
+    let batchesMigrated = 0;
+    for (const row of inventoryBatches) {
+      const bunkerId = bunkerMap.get(row.bunker_id);
+      const ammoId = ammoTypeMap.get(row.ammo_type_id);
+      if (bunkerId && ammoId) {
+        await models.InventoryBatch.create({
+          bunker_id: bunkerId,
+          ammo_type_id: ammoId,
+          batch_number: row.batch_number,
+          quantity: row.quantity || 0,
+          created_at: row.created_at ? new Date(row.created_at) : new Date(),
+        });
+        batchesMigrated++;
+      }
+    }
+    console.log(`  ✅ Migrated ${batchesMigrated}/${inventoryBatches.length} inventory batch rows`);
+
+    // Migrate Inventory Serials
+    console.log('📤 Migrating Inventory Serials...');
+    const inventorySerials = db.prepare('SELECT * FROM inventory_serials').all() as any[];
+    let serialsMigrated = 0;
+    for (const row of inventorySerials) {
+      const bunkerId = bunkerMap.get(row.bunker_id);
+      const ammoId = ammoTypeMap.get(row.ammo_type_id);
+      if (bunkerId && ammoId) {
+        await models.InventorySerial.create({
+          bunker_id: bunkerId,
+          ammo_type_id: ammoId,
+          serial_number: row.serial_number,
+          status: row.status || 'in_stock',
+          created_at: row.created_at ? new Date(row.created_at) : new Date(),
+        });
+        serialsMigrated++;
+      }
+    }
+    console.log(`  ✅ Migrated ${serialsMigrated}/${inventorySerials.length} inventory serial rows`);
+
     // Migrate Bunker Standards
     console.log('📤 Migrating Bunker Standards...');
     const standards = db.prepare('SELECT * FROM bunker_standards').all() as any[];
@@ -187,7 +229,8 @@ async function migrate() {
 
     console.log('\n✅ Migration completed successfully!');
     console.log(`   Units: ${units.length} (+ ${hierarchyLinked} parent links) | Bunkers: ${bunkers.length} | Ammo Types: ${ammoTypes.length}`);
-    console.log(`   Inventory: ${inventoryMigrated}/${inventory.length} | Standards: ${standardsMigrated}/${standards.length} | Issuances: ${issuancesMigrated}/${issuances.length}`);
+    console.log(`   Inventory: ${inventoryMigrated}/${inventory.length} | Batches: ${batchesMigrated}/${inventoryBatches.length} | Serials: ${serialsMigrated}/${inventorySerials.length}`);
+    console.log(`   Standards: ${standardsMigrated}/${standards.length} | Issuances: ${issuancesMigrated}/${issuances.length}`);
     process.exit(0);
   } catch (error) {
     console.error('❌ Migration failed:', error);
