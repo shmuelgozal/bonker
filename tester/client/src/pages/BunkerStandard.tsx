@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getAmmoTypes, getStandard, updateStandard, getGaps, getBunker, getTemplates } from '../api/client';
 import type { AmmoType, GapItem, Bunker } from '../types';
+import { ArrowRight, ShieldCheck, CheckCircle, AlertTriangle, Download, ClipboardList, Save } from 'lucide-react';
 
 export default function BunkerStandard() {
   const { id } = useParams<{ id: string }>();
