@@ -221,13 +221,23 @@ export default function BunkerDetail() {
                                 {expandedBatches.length === 0 ? (
                                   <p className="text-xs text-gray-400">אין סדרות</p>
                                 ) : (
-                                  <div className="flex flex-wrap gap-2">
-                                    {expandedBatches.map(b => (
-                                      <div key={b.batch_number} className="bg-white border border-blue-200 rounded-lg px-3 py-1.5 text-sm">
-                                        <span className="font-mono font-medium text-gray-800">{b.batch_number}</span>
-                                        <span className="text-blue-600 font-bold mr-2">{b.quantity}</span>
-                                      </div>
-                                    ))}
+                                  <div className="rounded-lg border border-blue-200 bg-white overflow-hidden max-w-xl">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-blue-100/60">
+                                        <tr>
+                                          <th className="px-3 py-1.5 text-right text-xs font-semibold text-blue-800">סדרה</th>
+                                          <th className="px-3 py-1.5 text-right text-xs font-semibold text-blue-800">כמות</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {expandedBatches.map(b => (
+                                          <tr key={b.batch_number} className="border-t border-blue-100">
+                                            <td className="px-3 py-1.5 font-mono font-medium text-gray-800">{b.batch_number}</td>
+                                            <td className="px-3 py-1.5 text-blue-700 font-bold">{b.quantity}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
                                   </div>
                                 )}
                               </td>
