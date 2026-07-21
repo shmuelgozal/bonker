@@ -1,7 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { Inventory, InventoryEntry, AmmoType, Bunker, InventoryBatch, InventorySerial } from '../db/mongo';
+import { AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router({ mergeParams: true });
+
+const normalizeBunkerType = (value: unknown): 'bunker' | 'vehicle_pillbox' | 'soldiers' => {
+  if (value === 'soldiers') return 'soldiers';
+  if (value === 'vehicle_pillbox') return 'vehicle_pillbox';
+  return 'bunker';
+};
 
 // GET /api/bunkers/:id/inventory — current stock
 router.get('/', async (req: Request, res: Response) => {
@@ -46,6 +53,8 @@ router.get('/history', async (req: Request, res: Response) => {
           quantity_delta: e.quantity_delta,
           entry_type: e.entry_type,
           notes: e.notes,
+          event_date: e.event_date,
+          created_by_username: e.created_by_username,
           created_at: e.created_at,
           ammo_name: ammoType?.name,
           unit: ammoType?.unit,
@@ -110,19 +119,21 @@ router.get('/:ammoTypeId/serials', async (req: Request, res: Response) => {
 });
 
 // POST /api/bunkers/:id/inventory — add entry, update live stock
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const {
       ammo_type_id,
       quantity_delta = 0,
       entry_type = 'add',
+      move_date,
       notes,
       batches,
       serial_numbers,
     } = req.body as {
       ammo_type_id: string;
       quantity_delta?: number;
-      entry_type?: string;
+      entry_type?: 'add' | 'adjust' | 'issuance' | 'count' | 'shatzal';
+      move_date?: string;
       notes?: string;
       batches?: Array<{ batch_number: string; quantity: number }>;
       serial_numbers?: string[];
@@ -133,14 +144,31 @@ router.post('/', async (req: Request, res: Response) => {
     const bunker = await Bunker.findById(req.params.id);
     if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
 
+    const bunkerType = normalizeBunkerType(bunker.bunker_type);
+    if (entry_type === 'shatzal' && bunkerType === 'bunker') {
+      return res.status(400).json({ error: 'שצ"ל מותר רק בבונקר מסוג רכב/פילבוקס או חיילים' });
+    }
+
     const ammoType = await AmmoType.findById(ammo_type_id);
     if (!ammoType) return res.status(400).json({ error: 'סוג תחמושת לא נמצא' });
 
+    if (entry_type === 'shatzal' && ammoType.tracking_type !== 'qty') {
+      return res.status(400).json({ error: 'שצ"ל נתמך כרגע רק בתחמושת מנוהלת ככמות' });
+    }
+
     let delta = Number(quantity_delta || 0);
 
+    if (!Number.isFinite(delta) || delta === 0) {
+      return res.status(400).json({ error: 'יש להזין כמות' });
+    }
+
+    if (entry_type === 'shatzal') {
+      delta = -Math.abs(delta);
+    }
+
     if (ammoType.tracking_type === 'qty') {
-      if (!Number.isFinite(delta) || delta === 0) {
-        return res.status(400).json({ error: 'יש להזין כמות' });
+      if (entry_type === 'shatzal' && delta >= 0) {
+        return res.status(400).json({ error: 'שצ"ל חייב להפחית מלאי' });
       }
     }
 
@@ -176,6 +204,9 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       delta = validBatches.reduce((sum, b) => sum + b.quantity, 0);
+      if (entry_type === 'shatzal') {
+        delta = -Math.abs(delta);
+      }
     }
 
     if (ammoType.tracking_type === 'serial') {
@@ -195,6 +226,9 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       delta = serials.length;
+      if (entry_type === 'shatzal') {
+        delta = -Math.abs(delta);
+      }
     }
 
     // Create inventory entry
@@ -204,6 +238,9 @@ router.post('/', async (req: Request, res: Response) => {
       quantity_delta: delta,
       entry_type,
       notes: notes || undefined,
+      event_date: move_date ? new Date(move_date) : undefined,
+      created_by_user_id: req.user?.id,
+      created_by_username: req.user?.username,
       created_at: new Date(),
     });
 

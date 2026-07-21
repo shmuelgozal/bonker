@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import { getAmmoTypes, getTemplates, createTemplate, updateTemplate, deleteTemplate } from '../api/client';
+import UserManagement from '../components/UserManagement';
+import AccessRequestsManager from '../components/AccessRequestsManager';
 import type { AmmoType } from '../types';
-import { Settings as SettingsIcon, Plus, Pencil, Trash2, Save, X, RefreshCw, ClipboardList } from 'lucide-react';
+import { Settings as SettingsIcon, Plus, Pencil, Trash2, Save, X, RefreshCw, ClipboardList, Users, Clock } from 'lucide-react';
 
 // ─── Template editor (inline) ────────────────────────────────────────────────
 interface EditorProps {
@@ -107,11 +110,12 @@ function TemplateEditor({ name: initName, items: initItems, ammoTypes, onSave, o
 
 // ─── Main Settings page ───────────────────────────────────────────────────────
 export default function Settings() {
+  const { user } = useAuth();
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
   const [templates, setTemplates] = useState<Array<{ id: string; name: string; items: Record<string, number> }>>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null); // null = not editing; '' = new
-  const [activeTab, setActiveTab] = useState<'templates'>('templates');
+  const [activeTab, setActiveTab] = useState<'templates' | 'users' | 'access-requests'>('templates');
 
   useEffect(() => {
     Promise.all([getAmmoTypes(), getTemplates()])
@@ -249,8 +253,23 @@ export default function Settings() {
     </div>
   );
 
+  // Only admins can access settings
+  if (user?.role !== 'admin') {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="card p-8 text-center">
+          <div className="mb-4">
+            <SettingsIcon size={32} className="mx-auto text-gray-400" />
+          </div>
+          <h1 className="text-lg font-bold text-gray-900 mb-2">גישה מוגבלת</h1>
+          <p className="text-gray-600">רק מנהלי המערכת יכולים לגשת לדף ההגדרות</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="flex items-center gap-2 mb-5">
         <SettingsIcon size={22} className="text-blue-600" />
         <h1 className="text-xl font-bold text-gray-900">הגדרות</h1>
@@ -268,6 +287,26 @@ export default function Settings() {
             }`}
           >
             <span className="flex items-center gap-2"><ClipboardList size={15} />טמפלייטים לתו תקן</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'users'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-2"><Users size={15} />ניהול משתמשים</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('access-requests')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'access-requests'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-2"><Clock size={15} />בקשות גישה</span>
           </button>
         </nav>
       </div>
@@ -361,6 +400,10 @@ export default function Settings() {
           ))}
         </>
       )}
+
+      {activeTab === 'users' && <UserManagement />}
+
+      {activeTab === 'access-requests' && <AccessRequestsManager />}
     </div>
   );
 }

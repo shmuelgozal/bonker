@@ -17,10 +17,10 @@ export default function BunkerInventoryAdd() {
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
   const [ammoTypeId, setAmmoTypeId] = useState('');
   const [trackingType, setTrackingType] = useState<TrackingType>('qty');
+  const [entryType, setEntryType] = useState<'add' | 'adjust' | 'shatzal'>('add');
 
-  // qty
   const [quantityDelta, setQuantityDelta] = useState('');
-  const [entryType, setEntryType] = useState<'add' | 'adjust'>('add');
+  const [shatzalDate, setShatzalDate] = useState(new Date().toISOString().split('T')[0]);
 
   // batch
   const [batchRows, setBatchRows] = useState<BatchRow[]>([{ batch_number: '', quantity: 0 }]);
@@ -37,6 +37,14 @@ export default function BunkerInventoryAdd() {
     });
   }, [bunkerId]);
 
+  useEffect(() => {
+    const bunkerType = bunker?.bunker_type || 'bunker';
+    const canUseShatzal = (bunkerType === 'vehicle_pillbox' || bunkerType === 'soldiers') && trackingType === 'qty';
+    if (!canUseShatzal && entryType === 'shatzal') {
+      setEntryType('add');
+    }
+  }, [bunker, entryType, trackingType]);
+
   const handleTypeChange = (val: string) => {
     setAmmoTypeId(val);
     const t = ammoTypes.find(a => a.id === val);
@@ -50,10 +58,13 @@ export default function BunkerInventoryAdd() {
     try {
       if (trackingType === 'qty') {
         if (!quantityDelta) { toast.error('הזן כמות'); return; }
+        const payloadEntryType = entryType === 'shatzal' ? 'shatzal' : entryType;
         await addInventoryEntry(bunkerId!, {
           ammo_type_id: ammoTypeId!,
           quantity_delta: Number(quantityDelta),
-          entry_type: entryType, notes,
+          entry_type: payloadEntryType,
+          move_date: payloadEntryType === 'shatzal' ? shatzalDate : undefined,
+          notes,
         });
       } else if (trackingType === 'batch') {
         const valid = batchRows.filter(b => b.batch_number.trim() && b.quantity > 0);
@@ -79,6 +90,7 @@ export default function BunkerInventoryAdd() {
   const selectedType = ammoTypes.find(a => a.id === ammoTypeId);
   const batchTotal = batchRows.reduce((s, b) => s + (b.quantity || 0), 0);
   const serialCount = serialsText.split(/[\n,]/).map(s => s.trim()).filter(Boolean).length;
+  const canUseShatzal = (bunker?.bunker_type === 'vehicle_pillbox' || bunker?.bunker_type === 'soldiers') && trackingType === 'qty';
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -128,7 +140,29 @@ export default function BunkerInventoryAdd() {
                       <span className="text-sm">{v === 'add' ? 'הוספה' : 'תיקון (שלילי/חיובי)'}</span>
                     </label>
                   ))}
+                  {canUseShatzal && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" value="shatzal" checked={entryType === 'shatzal'} onChange={() => setEntryType('shatzal')} />
+                      <span className="text-sm">שצ"ל</span>
+                    </label>
+                  )}
                 </div>
+                {entryType === 'shatzal' && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-amber-700">שצ"ל מוריד מלאי בלבד. הזן כמות שימוש חיובית ותאריך האירוע.</p>
+                    <div>
+                      <label className="label">תאריך אירוע *</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={shatzalDate}
+                        onChange={e => setShatzalDate(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        required={entryType === 'shatzal'}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="label">כמות *</label>

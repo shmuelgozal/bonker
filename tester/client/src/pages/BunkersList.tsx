@@ -5,7 +5,7 @@ import { getBunkers, createBunker, updateBunker, deleteBunker } from '../api/cli
 import type { Bunker } from '../types';
 import { Plus, Pencil, Trash2, MapPin, ChevronLeft, Network, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 
-type SortKey = 'name' | 'unit_name' | 'location' | 'description' | 'created_at';
+type SortKey = 'name' | 'bunker_type' | 'unit_name' | 'location' | 'description' | 'created_at';
 type SortDir = 'asc' | 'desc';
 
 function sortBunkers(list: Bunker[], key: SortKey, dir: SortDir): Bunker[] {
@@ -19,11 +19,12 @@ function sortBunkers(list: Bunker[], key: SortKey, dir: SortDir): Bunker[] {
 
 interface BunkerForm {
   name: string;
+  bunker_type: 'bunker' | 'vehicle_pillbox' | 'soldiers';
   location: string;
   description: string;
 }
 
-const emptyForm: BunkerForm = { name: '', location: '', description: '' };
+const emptyForm: BunkerForm = { name: '', bunker_type: 'bunker', location: '', description: '' };
 
 export default function BunkersList() {
   const [bunkers, setBunkers] = useState<Bunker[]>([]);
@@ -91,7 +92,12 @@ export default function BunkersList() {
 
   const handleEdit = (b: Bunker) => {
     setEditId(b.id);
-    setForm({ name: b.name, location: b.location ?? '', description: b.description ?? '' });
+    setForm({
+      name: b.name,
+      bunker_type: b.bunker_type || 'bunker',
+      location: b.location ?? '',
+      description: b.description ?? '',
+    });
     setShowForm(true);
   };
 
@@ -128,7 +134,7 @@ export default function BunkersList() {
           <h2 className="font-semibold text-gray-800 mb-4">
             {editId !== null ? 'עריכת בונקר' : 'הוספת בונקר חדש'}
           </h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="label">שם הבונקר *</label>
               <input
@@ -138,6 +144,18 @@ export default function BunkersList() {
                 placeholder="לדוגמה: בונקר א'"
                 required
               />
+            </div>
+            <div>
+              <label className="label">סוג בונקר</label>
+              <select
+                className="input"
+                value={form.bunker_type}
+                onChange={e => setForm(p => ({ ...p, bunker_type: e.target.value as 'bunker' | 'vehicle_pillbox' | 'soldiers' }))}
+              >
+                <option value="bunker">בונקר</option>
+                <option value="vehicle_pillbox">רכב/פילבוקס</option>
+                <option value="soldiers">חיילים</option>
+              </select>
             </div>
             <div>
               <label className="label">מיקום</label>
@@ -190,6 +208,7 @@ export default function BunkersList() {
             <thead>
               <tr>
                 <Th col="name">שם הבונקר</Th>
+                <Th col="bunker_type">סוג</Th>
                 <Th col="unit_name">מסגרת</Th>
                 <Th col="location">מיקום</Th>
                 <Th col="description">תיאור</Th>
@@ -205,6 +224,11 @@ export default function BunkersList() {
                       {b.name}
                       <ChevronLeft size={14} className="text-gray-400" />
                     </Link>
+                  </td>
+                  <td className="table-td">
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${b.bunker_type === 'soldiers' ? 'bg-amber-100 text-amber-800' : b.bunker_type === 'vehicle_pillbox' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
+                      {b.bunker_type === 'soldiers' ? 'חיילים' : b.bunker_type === 'vehicle_pillbox' ? 'רכב/פילבוקס' : 'בונקר'}
+                    </span>
                   </td>
                   <td className="table-td">
                     {b.unit_name ? (

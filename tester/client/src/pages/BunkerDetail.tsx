@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getBunker, getInventory, getInventoryHistory, getCounts, getIssuances, getGaps, getBatches, getSerials } from '../api/client';
-import type { Bunker, InventoryItem, InventoryEntry, InventoryCount, Issuance, GapsResponse, InventoryBatch, InventorySerial } from '../types';
-import { Plus, ClipboardList, BookOpen, History, AlertTriangle, CheckCircle, ArrowRight, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { getBunker, getInventory, getInventoryHistory, getCounts, getIssuances, getGaps, getBatches, getSerials, getSoldierBunkerRecords, getSoldierBunkerHistory, adjustSoldierBunkerRecord } from '../api/client';
+import type { Bunker, InventoryItem, InventoryEntry, InventoryCount, Issuance, GapsResponse, InventoryBatch, InventorySerial, SoldierBunkerRecord, SoldierBunkerMovement } from '../types';
+import { Plus, ClipboardList, BookOpen, History, AlertTriangle, CheckCircle, ArrowRight, ShieldCheck, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { TrackingBadge } from './AmmoTypes';
 
-type TabId = 'inventory' | 'history' | 'counts' | 'issuances';
+type TabId = 'inventory' | 'history' | 'counts' | 'issuances' | 'soldier_records' | 'soldier_history';
 
 export default function BunkerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,12 @@ export default function BunkerDetail() {
   const [history, setHistory] = useState<InventoryEntry[]>([]);
   const [counts, setCounts] = useState<InventoryCount[]>([]);
   const [issuances, setIssuances] = useState<Issuance[]>([]);
+  const [soldierRecords, setSoldierRecords] = useState<SoldierBunkerRecord[]>([]);
+  const [soldierHistory, setSoldierHistory] = useState<SoldierBunkerMovement[]>([]);
+  const [editingRecord, setEditingRecord] = useState<SoldierBunkerRecord | null>(null);
+  const [editQuantity, setEditQuantity] = useState(0);
+  const [editNotes, setEditNotes] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   const [gaps, setGaps] = useState<GapsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -35,6 +42,9 @@ export default function BunkerDetail() {
         setBunker(b);
         setInventory(inv);
         setGaps(gapData);
+        if ((b.bunker_type || 'bunker') === 'soldiers') {
+          setActiveTab('soldier_records');
+        }
       } finally {
         setLoading(false);
       }
@@ -51,7 +61,79 @@ export default function BunkerDetail() {
     if (activeTab === 'issuances' && issuances.length === 0) {
       getIssuances(bunkerId!).then(setIssuances);
     }
+    if (activeTab === 'soldier_records' && soldierRecords.length === 0) {
+      getSoldierBunkerRecords(bunkerId!).then(setSoldierRecords);
+    }
+    if (activeTab === 'soldier_history' && soldierHistory.length === 0) {
+      getSoldierBunkerHistory(bunkerId!).then(setSoldierHistory);
+    }
   }, [activeTab, bunkerId]);
+
+  const reloadSoldierData = async () => {
+    const [records, historyRows] = await Promise.all([
+      getSoldierBunkerRecords(bunkerId!),
+      getSoldierBunkerHistory(bunkerId!),
+    ]);
+    setSoldierRecords(records);
+    setSoldierHistory(historyRows);
+  };
+
+  const openEditRecord = (record: SoldierBunkerRecord) => {
+    setEditingRecord(record);
+    setEditQuantity(record.quantity);
+    setEditNotes('');
+  };
+
+  const submitEditRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+    if (editQuantity < 0) {
+      toast.error('כמות חדשה חייבת להיות 0 או יותר');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      await adjustSoldierBunkerRecord(bunkerId!, {
+        soldier_name: editingRecord.soldier_name,
+        soldier_id: editingRecord.soldier_id || undefined,
+        unit_name: editingRecord.unit_name || undefined,
+        ammo_type_id: editingRecord.ammo_type_id,
+        new_quantity: editQuantity,
+        notes: editNotes.trim() || undefined,
+      });
+      toast.success(editQuantity === 0 ? 'הרשומה הוסרה מהרשימה' : 'הרשומה עודכנה');
+      await reloadSoldierData();
+      setEditingRecord(null);
+      setEditNotes('');
+      setActiveTab('soldier_records');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'שגיאה בעדכון הרשומה');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const removeRecord = async (record: SoldierBunkerRecord) => {
+    if (!window.confirm(`למחוק את הרשומה של ${record.soldier_name} עבור ${record.ammo_name}?`)) return;
+    setSavingEdit(true);
+    try {
+      await adjustSoldierBunkerRecord(bunkerId!, {
+        soldier_name: record.soldier_name,
+        soldier_id: record.soldier_id || undefined,
+        unit_name: record.unit_name || undefined,
+        ammo_type_id: record.ammo_type_id,
+        new_quantity: 0,
+        notes: 'מחיקת רשומה (החזרה מלאה)',
+      });
+      toast.success('הרשומה הוסרה מהרשימה');
+      await reloadSoldierData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'שגיאה במחיקת הרשומה');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   if (loading) {
     return <div className="flex justify-center h-64 items-center">
@@ -84,12 +166,20 @@ export default function BunkerDetail() {
     }
   };
 
-  const tabs: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
-    { id: 'inventory', label: 'מלאי נוכחי', icon: <BookOpen size={15} /> },
-    { id: 'history', label: 'היסטוריה', icon: <History size={15} /> },
-    { id: 'counts', label: 'ספירות מלאי', icon: <ClipboardList size={15} /> },
-    { id: 'issuances', label: 'הנפקות', icon: <ClipboardList size={15} /> },
-  ];
+  const isSoldierBunker = (bunker.bunker_type || 'bunker') === 'soldiers';
+  const canIssue = (bunker.bunker_type || 'bunker') === 'bunker';
+
+  const tabs: Array<{ id: TabId; label: string; icon: React.ReactNode }> = isSoldierBunker
+    ? [
+        { id: 'soldier_records', label: 'רשומות חיילים', icon: <ClipboardList size={15} /> },
+        { id: 'soldier_history', label: 'היסטוריית תנועות', icon: <History size={15} /> },
+      ]
+    : [
+        { id: 'inventory', label: 'מלאי נוכחי', icon: <BookOpen size={15} /> },
+        { id: 'history', label: 'היסטוריה', icon: <History size={15} /> },
+        { id: 'counts', label: 'ספירות מלאי', icon: <ClipboardList size={15} /> },
+        { id: 'issuances', label: 'הנפקות', icon: <ClipboardList size={15} /> },
+      ];
 
   return (
     <div>
@@ -107,9 +197,10 @@ export default function BunkerDetail() {
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{bunker.name}</h1>
           {bunker.location && <p className="text-sm text-gray-500">{bunker.location}</p>}
+          {isSoldierBunker && <p className="text-xs text-amber-700 mt-1">בונקר מסוג חיילים: מציג תחמושת לפי חייל מקבל</p>}
         </div>
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 flex-shrink-0">
-          {gaps && gaps.summary.total > 0 && (
+          {!isSoldierBunker && gaps && gaps.summary.total > 0 && (
             hasDeficit ? (
               <span className="badge-danger flex items-center gap-1 text-xs px-2 py-1">
                 <AlertTriangle size={12} /> {gaps.summary.deficit} פערים
@@ -121,26 +212,32 @@ export default function BunkerDetail() {
             )
           )}
           <div className="flex items-center gap-1 flex-wrap justify-end">
-            <Link to={`/bunkers/${bunkerId}/standard`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
-              <ShieldCheck size={13} />
-              <span className="hidden sm:inline">תו תקן</span>
-              <span className="sm:hidden">תקן</span>
-            </Link>
-            <Link to={`/bunkers/${bunkerId}/count/new`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
-              <ClipboardList size={13} />
-              <span className="hidden sm:inline">ספירת מלאי</span>
-              <span className="sm:hidden">ספירה</span>
-            </Link>
-            <Link to={`/bunkers/${bunkerId}/issuance/new`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
-              <ClipboardList size={13} />
-              <span className="hidden sm:inline">הנפקה חדשה</span>
-              <span className="sm:hidden">הנפקה</span>
-            </Link>
-            <Link to={`/bunkers/${bunkerId}/inventory/add`} className="btn-primary flex items-center gap-1 text-xs px-2 py-1.5">
-              <Plus size={13} />
-              <span className="hidden sm:inline">הזנת מלאי</span>
-              <span className="sm:hidden">הזנה</span>
-            </Link>
+            {!isSoldierBunker && (
+              <>
+                <Link to={`/bunkers/${bunkerId}/standard`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
+                  <ShieldCheck size={13} />
+                  <span className="hidden sm:inline">תו תקן</span>
+                  <span className="sm:hidden">תקן</span>
+                </Link>
+                <Link to={`/bunkers/${bunkerId}/count/new`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
+                  <ClipboardList size={13} />
+                  <span className="hidden sm:inline">ספירת מלאי</span>
+                  <span className="sm:hidden">ספירה</span>
+                </Link>
+                <Link to={`/bunkers/${bunkerId}/inventory/add`} className="btn-primary flex items-center gap-1 text-xs px-2 py-1.5">
+                  <Plus size={13} />
+                  <span className="hidden sm:inline">הזנת מלאי</span>
+                  <span className="sm:hidden">הזנה</span>
+                </Link>
+              </>
+            )}
+            {canIssue && (
+              <Link to={`/bunkers/${bunkerId}/issuance/new`} className="btn-secondary flex items-center gap-1 text-xs px-2 py-1.5">
+                <ClipboardList size={13} />
+                <span className="hidden sm:inline">הנפקה חדשה</span>
+                <span className="sm:hidden">הנפקה</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -298,12 +395,14 @@ export default function BunkerDetail() {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         entry.entry_type === 'issuance' ? 'bg-orange-100 text-orange-700' :
                         entry.entry_type === 'count' ? 'bg-purple-100 text-purple-700' :
+                        entry.entry_type === 'shatzal' ? 'bg-amber-100 text-amber-700' :
                         entry.entry_type === 'adjust' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-blue-100 text-blue-700'
                       }`}>
                         {entry.entry_type === 'add' ? 'הוספה' :
                          entry.entry_type === 'issuance' ? 'הנפקה' :
-                         entry.entry_type === 'count' ? 'ספירה' : 'תיקון'}
+                         entry.entry_type === 'count' ? 'ספירה' :
+                         entry.entry_type === 'shatzal' ? 'שצ"ל' : 'תיקון'}
                       </span>
                     </td>
                     <td className={`table-td font-bold ${entry.quantity_delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -368,12 +467,14 @@ export default function BunkerDetail() {
 
       {activeTab === 'issuances' && (
         <div>
-          <div className="flex justify-end mb-3">
-            <Link to={`/bunkers/${bunkerId}/issuance/new`} className="btn-primary flex items-center gap-1.5 text-sm">
-              <Plus size={14} />
-              הנפקה חדשה
-            </Link>
-          </div>
+          {canIssue && (
+            <div className="flex justify-end mb-3">
+              <Link to={`/bunkers/${bunkerId}/issuance/new`} className="btn-primary flex items-center gap-1.5 text-sm">
+                <Plus size={14} />
+                הנפקה חדשה
+              </Link>
+            </div>
+          )}
           <div className="card overflow-hidden">
             {issuances.length === 0 ? (
               <div className="p-10 text-center text-gray-400">אין הנפקות רשומות</div>
@@ -410,7 +511,7 @@ export default function BunkerDetail() {
                       </td>
                       <td className="table-td">
                         <Link
-                          to={`/bunkers/${bunkerId}/issuances/${iss.id}`}
+                          to={`/bunkers/${iss.bunker_id}/issuances/${iss.id}`}
                           className="text-blue-600 text-xs hover:underline"
                         >
                           פרטים
@@ -423,6 +524,133 @@ export default function BunkerDetail() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'soldier_records' && (
+        <div className="space-y-4">
+          {editingRecord && (
+            <div className="card p-5 border border-blue-200">
+              <h3 className="font-semibold text-gray-800 mb-3">עריכת רשומה קיימת</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                {editingRecord.soldier_name} | {editingRecord.ammo_name} | כמות נוכחית: {editingRecord.quantity}
+              </p>
+              <form onSubmit={submitEditRecord} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="label">כמות חדשה</label>
+                  <input type="number" min="0" className="input" value={editQuantity} onChange={e => setEditQuantity(Number(e.target.value) || 0)} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="label">הערת שינוי</label>
+                  <input className="input" value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="למשל: תיקון הזנה" />
+                </div>
+                <div className="md:col-span-3 flex gap-2">
+                  <button type="submit" className="btn-primary" disabled={savingEdit}>{savingEdit ? 'שומר...' : 'שמור שינוי'}</button>
+                  <button type="button" className="btn-secondary" onClick={() => setEditingRecord(null)} disabled={savingEdit}>ביטול</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="card overflow-hidden">
+          {soldierRecords.length === 0 ? (
+            <div className="p-10 text-center text-gray-400">אין רשומות חיילים עדיין</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="table-th">תאריך</th>
+                    <th className="table-th">חייל</th>
+                    <th className="table-th hidden sm:table-cell">מ.א.</th>
+                    <th className="table-th hidden sm:table-cell">יחידה</th>
+                    <th className="table-th">פריט</th>
+                    <th className="table-th hidden sm:table-cell">קטגוריה</th>
+                    <th className="table-th">כמות</th>
+                    <th className="table-th"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {soldierRecords.map(record => (
+                    <tr key={record.id} className="hover:bg-gray-50">
+                      <td className="table-td text-sm whitespace-nowrap">{record.issue_date}</td>
+                      <td className="table-td font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{record.soldier_name}</span>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800"
+                            title="עריכה"
+                            onClick={() => openEditRecord(record)}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="table-td text-gray-500 hidden sm:table-cell">{record.soldier_id || '—'}</td>
+                      <td className="table-td text-gray-500 hidden sm:table-cell">{record.unit_name || '—'}</td>
+                      <td className="table-td">{record.ammo_name}</td>
+                      <td className="table-td text-gray-500 hidden sm:table-cell">{record.ammo_category}</td>
+                      <td className="table-td font-bold">{record.quantity} {record.ammo_unit}</td>
+                      <td className="table-td">
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-800"
+                          title="מחיקה"
+                          onClick={() => removeRecord(record)}
+                          disabled={savingEdit}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'soldier_history' && (
+        <div className="card overflow-hidden">
+          {soldierHistory.length === 0 ? (
+            <div className="p-10 text-center text-gray-400">אין תנועות רשומות</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="table-th">תאריך</th>
+                    <th className="table-th">חייל</th>
+                    <th className="table-th hidden sm:table-cell">פריט</th>
+                    <th className="table-th">פעולה</th>
+                    <th className="table-th">כמות</th>
+                    <th className="table-th hidden sm:table-cell">הערות</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {soldierHistory.map(record => (
+                    <tr key={record.id} className="hover:bg-gray-50">
+                      <td className="table-td text-sm whitespace-nowrap">{record.issue_date}</td>
+                      <td className="table-td font-medium">{record.soldier_name}</td>
+                      <td className="table-td hidden sm:table-cell">{record.ammo_name}</td>
+                      <td className="table-td">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${record.movement_type === 'manual_add' ? 'bg-green-100 text-green-700' : record.movement_type === 'manual_remove' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {record.movement_type === 'manual_add' ? 'הוספה' : record.movement_type === 'manual_remove' ? 'גריעה' : 'הנפקה'}
+                        </span>
+                      </td>
+                      <td className={`table-td font-bold ${record.quantity >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {record.quantity >= 0 ? '+' : ''}{record.quantity} {record.ammo_unit}
+                      </td>
+                      <td className="table-td hidden sm:table-cell text-gray-500">{record.notes || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

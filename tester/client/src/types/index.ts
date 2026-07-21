@@ -1,6 +1,7 @@
 export interface Bunker {
   id: string;
   name: string;
+  bunker_type: 'bunker' | 'vehicle_pillbox' | 'soldiers';
   location: string | null;
   description: string | null;
   unit_id: string | null;
@@ -59,12 +60,35 @@ export interface InventoryEntry {
   bunker_id: string;
   ammo_type_id: string;
   quantity_delta: number;
-  entry_type: 'add' | 'adjust' | 'issuance' | 'count';
+  entry_type: 'add' | 'adjust' | 'issuance' | 'count' | 'shatzal' | 'inter_bunker_transfer';
   notes: string | null;
+  event_date?: string | null;
+  created_by_username?: string | null;
   created_at: string;
   ammo_name: string;
   unit: string;
   category: string;
+}
+
+export interface ShatzalUsageReportItem {
+  id: string;
+  bunker_id: string;
+  bunker_name: string | null;
+  bunker_type: 'bunker' | 'vehicle_pillbox' | 'soldiers';
+  ammo_type_id: string;
+  ammo_name: string | null;
+  ammo_unit: string | null;
+  quantity_used: number;
+  representative: string;
+  used_at: string;
+  notes: string | null;
+}
+
+export interface ShatzalTimelinePoint {
+  date: string;
+  total_qty: number;
+  event_count: number;
+  label: string;
 }
 
 export interface InventoryCount {
@@ -113,6 +137,29 @@ export interface IssuanceItem {
   tracking_type: TrackingType;
   batch_details?: Array<{ batch_number: string; quantity: number }>;
   serial_numbers?: string[];
+}
+
+export interface SoldierBunkerRecord {
+  id: string;
+  bunker_id: string;
+  issuance_id?: string;
+  issuance_item_id?: string;
+  movement_type?: 'issuance' | 'manual_add' | 'manual_remove';
+  soldier_name: string;
+  soldier_id: string | null;
+  unit_name: string | null;
+  ammo_type_id: string;
+  ammo_name: string;
+  ammo_unit: string;
+  ammo_category: string;
+  quantity: number;
+  issue_date: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface SoldierBunkerMovement extends SoldierBunkerRecord {
+  movement_type: 'issuance' | 'manual_add' | 'manual_remove';
 }
 
 export interface BunkerStandard {

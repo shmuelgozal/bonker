@@ -3,13 +3,67 @@ import type {
   Bunker, AmmoType, InventoryItem, InventoryEntry,
   InventoryCount, CountItem, Issuance, IssuanceItem,
   BunkerStandard, GapsResponse, InventoryBatch, InventorySerial,
-  Unit, UnitWithChildren, UnitDetail, StorageLocation
+  Unit, UnitWithChildren, UnitDetail, StorageLocation, SoldierBunkerRecord, SoldierBunkerMovement,
+  ShatzalUsageReportItem
 } from '../types';
+
+// Re-export types for components
+export type { Unit, UnitWithChildren, UnitDetail, StorageLocation };
 
 // Use environment variable for API base URL, fallback to relative path for local development
 const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({ baseURL: apiBaseURL });
+
+// Auth token management
+export function setAuthToken(token: string | null) {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+}
+
+// Auth endpoints
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    role: 'admin' | 'user';
+  };
+}
+
+export const login = (username: string, password: string) =>
+  api.post<LoginResponse>('/auth/login', { username, password }).then(r => r.data);
+
+export const register = (username: string, password: string, email: string) =>
+  api.post('/auth/register', { username, password, email }).then(r => r.data);
+
+export const getCurrentUser = () =>
+  api.get<{
+    id: string;
+    username: string;
+    email: string;
+    role: 'admin' | 'user';
+  }>('/auth/me').then(r => r.data);
+
+export interface FrameworkSummary {
+  id: string;
+  name: string;
+  type: string;
+  bunker_count: number;
+}
+
+export const getUserFrameworksSummary = () =>
+  api.get<FrameworkSummary[]>('/auth/me/frameworks-summary').then(r => r.data);
+
+export const getCurrentUserFrameworksSummary = () =>
+  api.get<{ frameworks: Array<{ id: string; name: string; type: string; bunker_count: number }> }>('/auth/me/frameworks-summary').then(r => r.data);
+
+export const getUserAccessibleUnits = () =>
+  api.get<Unit[]>('/auth/me/units').then(r => r.data);
 
 // Units (Hierarchical Framework)
 export const getUnits = () => api.get<UnitWithChildren[]>('/units').then(r => r.data);
@@ -71,11 +125,15 @@ export const getInventoryHistory = (bunkerId: string) =>
 export const addInventoryEntry = (bunkerId: string, data: {
   ammo_type_id: string;
   quantity_delta?: number;
-  entry_type?: string;
+  entry_type?: 'add' | 'adjust' | 'issuance' | 'count' | 'shatzal';
+  move_date?: string;
   notes?: string;
   batches?: Array<{ batch_number: string; quantity: number }>;
   serial_numbers?: string[];
 }) => api.post<InventoryItem>(`/bunkers/${bunkerId}/inventory`, data).then(r => r.data);
+
+export const getShatzalUsageReport = () =>
+  api.get<ShatzalUsageReportItem[]>('/reports/shatzal').then(r => r.data);
 
 // Batch & Serial detail endpoints
 export const getBatches = (bunkerId: string, ammoTypeId: string) =>
@@ -103,6 +161,8 @@ export const updateCount = (bunkerId: string, countId: string, data: {
 // Issuances
 export const getIssuances = (bunkerId: string) =>
   api.get<Issuance[]>(`/bunkers/${bunkerId}/issuances`).then(r => r.data);
+export const getLinkedIssuances = (bunkerId: string) =>
+  api.get<Issuance[]>(`/bunkers/${bunkerId}/issuances`, { params: { view: 'linked_to' } }).then(r => r.data);
 export const getIssuance = (bunkerId: string, issuanceId: string) =>
   api.get<Issuance & { items: IssuanceItem[] }>(`/bunkers/${bunkerId}/issuances/${issuanceId}`).then(r => r.data);
 export const createIssuance = (bunkerId: string, formData: FormData) =>
@@ -113,6 +173,29 @@ export const updateIssuance = (bunkerId: string, issuanceId: string, formData: F
   api.put<Issuance>(`/bunkers/${bunkerId}/issuances/${issuanceId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data);
+export const getSoldierBunkerRecords = (bunkerId: string) =>
+  api.get<SoldierBunkerRecord[]>(`/bunkers/${bunkerId}/soldier-records`).then(r => r.data);
+export const getSoldierBunkerHistory = (bunkerId: string) =>
+  api.get<SoldierBunkerMovement[]>(`/bunkers/${bunkerId}/soldier-records/history`).then(r => r.data);
+export const createSoldierBunkerMovement = (bunkerId: string, data: {
+  soldier_name: string;
+  soldier_id?: string;
+  unit_name?: string;
+  ammo_type_id: string;
+  quantity: number;
+  action: 'add' | 'remove';
+  notes?: string;
+  move_date?: string;
+}) => api.post<SoldierBunkerMovement>(`/bunkers/${bunkerId}/soldier-records/movements`, data).then(r => r.data);
+export const adjustSoldierBunkerRecord = (bunkerId: string, data: {
+  soldier_name: string;
+  soldier_id?: string;
+  unit_name?: string;
+  ammo_type_id: string;
+  new_quantity: number;
+  notes?: string;
+  move_date?: string;
+}) => api.patch<{ success: boolean; changed: boolean; message?: string }>(`/bunkers/${bunkerId}/soldier-records/adjust`, data).then(r => r.data);
 
 // Standards
 export const getStandard = (bunkerId: string) =>
@@ -139,5 +222,64 @@ export const updateTemplate = (id: string, data: { name?: string; items?: Record
   api.put<StandardTemplateDto>(`/templates/${id}`, data).then(r => r.data);
 export const deleteTemplate = (id: string) =>
   api.delete<{ success: boolean }>(`/templates/${id}`).then(r => r.data);
+
+// User Management
+export interface UserDto {
+  id: string;
+  username: string;
+  email: string;
+  role: 'admin' | 'user';
+  created_at: string;
+}
+
+export interface UserWithFrameworksDto {
+  user: UserDto;
+  frameworks: Array<{
+    _id: string;
+    name: string;
+    type: string;
+  }>;
+}
+
+export const getAllUsers = () =>
+  api.get<UserDto[]>('/auth/users').then(r => r.data);
+
+export const getUserWithFrameworks = (userId: string) =>
+  api.get<UserWithFrameworksDto>(`/auth/users/${userId}`).then(r => r.data);
+
+export const createUser = (data: { username: string; password: string; role?: 'admin' | 'user' }) =>
+  api.post<UserDto>('/auth/register', data).then(r => r.data);
+
+export const updateUserPassword = (userId: string, newPassword: string) =>
+  api.put(`/auth/users/${userId}/password`, { password: newPassword }).then(r => r.data);
+
+export const deleteUser = (userId: string) =>
+  api.delete(`/auth/users/${userId}`).then(r => r.data);
+
+export const assignUserToFramework = (userId: string, unitId: string) =>
+  api.post('/auth/assign-framework', { userId, unitId }).then(r => r.data);
+
+export const removeUserFromFramework = (userId: string, unitId: string) =>
+  api.delete(`/auth/remove-framework/${userId}/${unitId}`).then(r => r.data);
+
+// Access Request endpoints
+export interface AccessRequest {
+  id: string;
+  username: string;
+  requested_at: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export const requestAccess = (username: string, password: string) =>
+  api.post('/auth/request-access', { username, password }).then(r => r.data);
+
+export const getPendingAccessRequests = () =>
+  api.get<AccessRequest[]>('/auth/access-requests').then(r => r.data);
+
+export const approveAccessRequest = (requestId: string, unitId: string, role?: 'admin' | 'user') =>
+  api.post(`/auth/approve-access/${requestId}`, { unitId, role }).then(r => r.data);
+
+export const rejectAccessRequest = (requestId: string, reason?: string) =>
+  api.post(`/auth/reject-access/${requestId}`, { reason }).then(r => r.data);
 
 export default api;

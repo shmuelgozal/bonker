@@ -40,6 +40,7 @@ export const StorageLocation = mongoose.model<IStorageLocation>('StorageLocation
 export interface IBunker extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
+  bunker_type: 'bunker' | 'vehicle_pillbox' | 'soldiers';
   unit_id?: mongoose.Types.ObjectId;
   location?: string;
   description?: string;
@@ -48,6 +49,7 @@ export interface IBunker extends Document {
 
 const BunkerSchema = new Schema<IBunker>({
   name: { type: String, required: true },
+  bunker_type: { type: String, enum: ['bunker', 'vehicle_pillbox', 'soldiers'], default: 'bunker' },
   unit_id: { type: Schema.Types.ObjectId, ref: 'Unit' },
   location: String,
   description: String,
@@ -122,6 +124,9 @@ export interface IInventoryEntry extends Document {
   quantity_delta: number;
   entry_type: string;
   notes?: string;
+  event_date?: Date;
+  created_by_user_id?: mongoose.Types.ObjectId;
+  created_by_username?: string;
   created_at: Date;
 }
 
@@ -131,6 +136,9 @@ const InventoryEntrySchema = new Schema<IInventoryEntry>({
   quantity_delta: { type: Number, required: true },
   entry_type: { type: String, default: 'add' },
   notes: String,
+  event_date: { type: Date },
+  created_by_user_id: { type: Schema.Types.ObjectId, ref: 'User' },
+  created_by_username: String,
   created_at: { type: Date, default: () => new Date() },
 });
 
@@ -179,6 +187,42 @@ const IssuanceItemSchema = new Schema<IIssuanceItem>({
 });
 
 export const IssuanceItem = mongoose.model<IIssuanceItem>('IssuanceItem', IssuanceItemSchema);
+
+// Soldier Bunker Record
+export interface ISoldierBunkerRecord extends Document {
+  _id: mongoose.Types.ObjectId;
+  bunker_id: mongoose.Types.ObjectId;
+  issuance_id?: mongoose.Types.ObjectId;
+  issuance_item_id?: mongoose.Types.ObjectId;
+  movement_type: 'issuance' | 'manual_add' | 'manual_remove';
+  soldier_name: string;
+  soldier_id?: string;
+  unit_name?: string;
+  ammo_type_id: mongoose.Types.ObjectId;
+  quantity: number;
+  issue_date: string;
+  notes?: string;
+  created_at: Date;
+}
+
+const SoldierBunkerRecordSchema = new Schema<ISoldierBunkerRecord>({
+  bunker_id: { type: Schema.Types.ObjectId, ref: 'Bunker', required: true },
+  issuance_id: { type: Schema.Types.ObjectId, ref: 'Issuance' },
+  issuance_item_id: { type: Schema.Types.ObjectId, ref: 'IssuanceItem' },
+  movement_type: { type: String, enum: ['issuance', 'manual_add', 'manual_remove'], default: 'issuance' },
+  soldier_name: { type: String, required: true },
+  soldier_id: String,
+  unit_name: String,
+  ammo_type_id: { type: Schema.Types.ObjectId, ref: 'AmmoType', required: true },
+  quantity: { type: Number, required: true },
+  issue_date: { type: String, required: true },
+  notes: String,
+  created_at: { type: Date, default: () => new Date() },
+});
+
+SoldierBunkerRecordSchema.index({ bunker_id: 1, created_at: -1 });
+
+export const SoldierBunkerRecord = mongoose.model<ISoldierBunkerRecord>('SoldierBunkerRecord', SoldierBunkerRecordSchema);
 
 // Inventory Batch
 export interface IInventoryBatch extends Document {
@@ -281,6 +325,73 @@ const StandardTemplateSchema = new Schema<IStandardTemplate>({
 });
 
 export const StandardTemplate = mongoose.model<IStandardTemplate>('StandardTemplate', StandardTemplateSchema);
+
+// User
+export interface IUser extends Document {
+  _id: mongoose.Types.ObjectId;
+  username: string;
+  password_hash: string;
+  email?: string;
+  role: 'admin' | 'user';
+  created_at: Date;
+}
+
+const UserSchema = new Schema<IUser>({
+  username: { type: String, required: true, unique: true },
+  password_hash: { type: String, required: true },
+  email: { type: String },
+  role: { type: String, enum: ['admin', 'user'], default: 'user' },
+  created_at: { type: Date, default: () => new Date() },
+});
+
+export const User = mongoose.model<IUser>('User', UserSchema);
+
+// User Framework Permission
+export interface IUserFrameworkPermission extends Document {
+  _id: mongoose.Types.ObjectId;
+  user_id: mongoose.Types.ObjectId;
+  unit_id: mongoose.Types.ObjectId;
+  created_at: Date;
+}
+
+const UserFrameworkPermissionSchema = new Schema<IUserFrameworkPermission>({
+  user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  unit_id: { type: Schema.Types.ObjectId, ref: 'Unit', required: true },
+  created_at: { type: Date, default: () => new Date() },
+});
+
+UserFrameworkPermissionSchema.index({ user_id: 1, unit_id: 1 }, { unique: true });
+
+export const UserFrameworkPermission = mongoose.model<IUserFrameworkPermission>(
+  'UserFrameworkPermission',
+  UserFrameworkPermissionSchema
+);
+
+// Access Request
+export interface IAccessRequest extends Document {
+  _id: mongoose.Types.ObjectId;
+  username: string;
+  password_hash: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: Date;
+  reviewed_by?: mongoose.Types.ObjectId;
+  reviewed_at?: Date;
+  assigned_unit_id?: mongoose.Types.ObjectId;
+  rejection_reason?: string;
+}
+
+const AccessRequestSchema = new Schema<IAccessRequest>({
+  username: { type: String, required: true, unique: true },
+  password_hash: { type: String, required: true },
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  requested_at: { type: Date, default: () => new Date() },
+  reviewed_by: { type: Schema.Types.ObjectId, ref: 'User' },
+  reviewed_at: { type: Date },
+  assigned_unit_id: { type: Schema.Types.ObjectId, ref: 'Unit' },
+  rejection_reason: { type: String },
+});
+
+export const AccessRequest = mongoose.model<IAccessRequest>('AccessRequest', AccessRequestSchema);
 
 // Connect to MongoDB
 export async function connectDB() {

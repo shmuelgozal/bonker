@@ -1,8 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { Issuance, IssuanceItem, AmmoType, Bunker, Inventory, InventoryEntry } from '../db/mongo';
+import { Issuance, IssuanceItem, AmmoType, Bunker, Inventory, InventoryEntry, SoldierBunkerRecord } from '../db/mongo';
 import upload from '../middleware/upload';
 
 const router = Router({ mergeParams: true });
+
+const normalizeBunkerType = (value: unknown): 'bunker' | 'vehicle_pillbox' | 'soldiers' => {
+  if (value === 'soldiers') return 'soldiers';
+  if (value === 'vehicle_pillbox') return 'vehicle_pillbox';
+  return 'bunker';
+};
 
 // Helper to build absolute image URL
 const getImageUrl = (req: Request, imagePath: string | undefined): string | undefined => {
@@ -15,7 +21,12 @@ const getImageUrl = (req: Request, imagePath: string | undefined): string | unde
 // GET /api/bunkers/:id/issuances
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const issuances = await Issuance.find({ bunker_id: req.params.id }).sort({ created_at: -1 }).lean();
+    const view = req.query.view;
+    const filter = view === 'linked_to'
+      ? { linked_bunker_id: req.params.id }
+      : { bunker_id: req.params.id };
+
+    const issuances = await Issuance.find(filter).sort({ created_at: -1 }).lean();
     const result = await Promise.all(
       (issuances as any[]).map(async (iss) => {
         const itemCount = await IssuanceItem.countDocuments({ issuance_id: iss._id });
@@ -71,12 +82,23 @@ router.post('/', upload.single('form_image'), async (req: Request, res: Response
     const bunker = await Bunker.findById(req.params.id);
     if (!bunker) return res.status(404).json({ error: 'בונקר לא נמצא' });
 
+    const sourceBunkerType = normalizeBunkerType(bunker.bunker_type);
+    if (sourceBunkerType !== 'bunker') {
+      return res.status(400).json({ error: 'רק בונקר מסוג בונקר יכול לבצע הנפקה' });
+    }
+
     let linkedBunkerId: string | null = null;
+    let linkedBunkerType: 'bunker' | 'vehicle_pillbox' | 'soldiers' = 'bunker';
     if (linked_bunker_id) {
       const linkedBunker = await Bunker.findById(linked_bunker_id);
       if (!linkedBunker) return res.status(404).json({ error: 'בונקר יעד לא נמצא' });
       if (linked_bunker_id === req.params.id) return res.status(400).json({ error: 'לא ניתן לקשור הנפקה לאותו בונקר' });
       linkedBunkerId = linked_bunker_id;
+      linkedBunkerType = normalizeBunkerType(linkedBunker.bunker_type);
+
+      if (linkedBunkerType === 'soldiers' && !recipient_name?.trim()) {
+        return res.status(400).json({ error: 'בהנפקה לבונקר חיילים חובה למלא שם חייל' });
+      }
     }
 
     interface IssuanceItemInput {
@@ -123,7 +145,7 @@ router.post('/', upload.single('form_image'), async (req: Request, res: Response
     for (const item of parsedItems) {
       if (item.quantity <= 0) continue;
 
-      await IssuanceItem.create({
+      const issuanceItem = await IssuanceItem.create({
         issuance_id: issuance._id,
         ammo_type_id: item.ammo_type_id,
         quantity: item.quantity,
@@ -152,35 +174,52 @@ router.post('/', upload.single('form_image'), async (req: Request, res: Response
         created_at: new Date(),
       });
 
-      // If linked to another bunker, add inventory
+      // If linked to another bunker, either add inventory or create soldier records
       if (linkedBunkerId) {
-        const destExisting = await Inventory.findOne({
-          bunker_id: linkedBunkerId,
-          ammo_type_id: item.ammo_type_id,
-        });
-
-        if (destExisting) {
-          await Inventory.findByIdAndUpdate(destExisting._id, {
-            quantity: destExisting.quantity + item.quantity,
-            updated_at: new Date(),
-          });
-        } else {
-          await Inventory.create({
+        if (linkedBunkerType === 'soldiers') {
+          await SoldierBunkerRecord.create({
             bunker_id: linkedBunkerId,
+            issuance_id: issuance._id,
+            issuance_item_id: issuanceItem._id,
+            movement_type: 'issuance',
+            soldier_name: recipient_name?.trim(),
+            soldier_id: recipient_id?.trim() || undefined,
+            unit_name: unit_name?.trim() || undefined,
             ammo_type_id: item.ammo_type_id,
             quantity: item.quantity,
-            updated_at: new Date(),
+            issue_date: issuance.issue_date,
+            notes: notes?.trim() || undefined,
+            created_at: new Date(),
+          });
+        } else {
+          const destExisting = await Inventory.findOne({
+            bunker_id: linkedBunkerId,
+            ammo_type_id: item.ammo_type_id,
+          });
+
+          if (destExisting) {
+            await Inventory.findByIdAndUpdate(destExisting._id, {
+              quantity: destExisting.quantity + item.quantity,
+              updated_at: new Date(),
+            });
+          } else {
+            await Inventory.create({
+              bunker_id: linkedBunkerId,
+              ammo_type_id: item.ammo_type_id,
+              quantity: item.quantity,
+              updated_at: new Date(),
+            });
+          }
+
+          await InventoryEntry.create({
+            bunker_id: linkedBunkerId,
+            ammo_type_id: item.ammo_type_id,
+            quantity_delta: item.quantity,
+            entry_type: 'inter_bunker_transfer',
+            notes: `קבלה מהנפקה #${issuance._id}`,
+            created_at: new Date(),
           });
         }
-
-        await InventoryEntry.create({
-          bunker_id: linkedBunkerId,
-          ammo_type_id: item.ammo_type_id,
-          quantity_delta: item.quantity,
-          entry_type: 'inter_bunker_transfer',
-          notes: `קבלה מהנפקה #${issuance._id}`,
-          created_at: new Date(),
-        });
       }
     }
 

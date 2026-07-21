@@ -6,12 +6,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { initDb } from './db/database-mongo';
+import { authMiddleware } from './middleware/auth';
+import authRouter from './routes/auth';
 import bunkersRouter from './routes/bunkers';
 import ammoTypesRouter from './routes/ammoTypes';
 import inventoryRouter from './routes/inventory';
 import countsRouter from './routes/counts';
 import issuancesRouter from './routes/issuances';
 import standardsRouter from './routes/standards';
+import reportsRouter from './routes/reports';
 import unitsRouter from './routes/units';
 import templatesRouter from './routes/templates';
 
@@ -50,20 +53,24 @@ async function startServer() {
   try {
     await initDb();
     
-    // Routes
-    app.use('/api/units', unitsRouter);
-    app.use('/api/bunkers', bunkersRouter);
-    app.use('/api/ammo-types', ammoTypesRouter);
-    app.use('/api/bunkers/:id/inventory', inventoryRouter);
-    app.use('/api/bunkers/:id/counts', countsRouter);
-    app.use('/api/bunkers/:id/issuances', issuancesRouter);
-    app.use('/api/bunkers/:id/standard', standardsRouter);
-    app.use('/api/templates', templatesRouter);
-
-    // Health check
+    // Health check (no auth required)
     app.get('/api/health', (_req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
+
+    // Auth routes (login/register accessible without auth)
+    app.use('/api/auth', authRouter);
+
+    // Protected routes (require authentication)
+    app.use('/api/units', authMiddleware, unitsRouter);
+    app.use('/api/bunkers', authMiddleware, bunkersRouter);
+    app.use('/api/ammo-types', authMiddleware, ammoTypesRouter);
+    app.use('/api/bunkers/:id/inventory', authMiddleware, inventoryRouter);
+    app.use('/api/bunkers/:id/counts', authMiddleware, countsRouter);
+    app.use('/api/bunkers/:id/issuances', authMiddleware, issuancesRouter);
+    app.use('/api/bunkers/:id/standard', authMiddleware, standardsRouter);
+    app.use('/api/reports', authMiddleware, reportsRouter);
+    app.use('/api/templates', authMiddleware, templatesRouter);
 
     app.listen(PORT, () => {
       console.log(`🚀 Bunker server running on port ${PORT}`);

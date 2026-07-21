@@ -49,10 +49,15 @@ export default function BunkerIssuanceNew() {
   useEffect(() => {
     if (bunkerId) {
       Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId), getBunkers()]).then(([b, types, inv, bunkers]) => {
+        if ((b.bunker_type || 'bunker') !== 'bunker') {
+          toast.error('סוג בונקר זה לא מורשה להנפיק');
+          navigate(`/bunkers/${bunkerId}`);
+          return;
+        }
         setBunker(b); setAmmoTypes(types); setInventory(inv); setAllBunkers(bunkers);
       });
     }
-  }, [bunkerId]);
+  }, [bunkerId, navigate]);
 
   const stockOf = (ammoTypeId: string) =>
     inventory.find(i => i.ammo_type_id === ammoTypeId)?.quantity ?? 0;
@@ -116,6 +121,10 @@ export default function BunkerIssuanceNew() {
     e.preventDefault();
     const validRows = rows.filter(r => r.ammo_type_id);
     if (!validRows.length) { toast.error('הוסף לפחות פריט אחד'); return; }
+    if (selectedLinkedBunker?.bunker_type === 'soldiers' && !recipientName.trim()) {
+      toast.error('בהנפקה לבונקר חיילים חובה למלא שם חייל');
+      return;
+    }
 
     // Build items payload
     const items = validRows.map(r => {
@@ -163,6 +172,7 @@ export default function BunkerIssuanceNew() {
   const grouped = ammoTypes.reduce<Record<string, AmmoType[]>>((acc, t) => {
     (acc[t.category] = acc[t.category] || []).push(t); return acc;
   }, {});
+  const selectedLinkedBunker = linkedBunkerId ? allBunkers.find(b => b.id === linkedBunkerId) : null;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -190,12 +200,14 @@ export default function BunkerIssuanceNew() {
               <select className="input" value={linkedBunkerId || ''} onChange={e => setLinkedBunkerId(e.target.value || null)}>
                 <option value="">-- ללא קישור (הנפקה רגילה) --</option>
                 {allBunkers.filter(b => b.id !== bunkerId).map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
+                  <option key={b.id} value={b.id}>{b.name} {b.bunker_type === 'soldiers' ? '(חיילים)' : b.bunker_type === 'vehicle_pillbox' ? '(רכב/פילבוקס)' : '(בונקר)'}</option>
                 ))}
               </select>
               {linkedBunkerId && (
                 <p className="text-xs text-blue-600 mt-2">
-                  הנפקה לבונקר יעד: יורידה מ"{bunker?.name}" ותוסיף ל"{allBunkers.find(b => b.id === linkedBunkerId)?.name}"
+                  {selectedLinkedBunker?.bunker_type === 'soldiers'
+                    ? `הנפקה לבונקר חיילים: הכמות תרד מ"${bunker?.name}" ותירשם על החייל בבונקר "${selectedLinkedBunker?.name}"`
+                    : `הנפקה לבונקר יעד: יורידה מ"${bunker?.name}" ותוסיף ל"${selectedLinkedBunker?.name}"`}
                 </p>
               )}
             </div>

@@ -1,17 +1,42 @@
-import { Router, Request, Response } from 'express';
-import { Unit, StorageLocation, Bunker, Inventory, AmmoType, BunkerStandard } from '../db/mongo';
+import { Router, Response } from 'express';
+import { Unit, StorageLocation, Bunker, Inventory, AmmoType, BunkerStandard, User } from '../db/mongo';
 import mongoose from 'mongoose';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { checkUnitAccess, getAccessibleUnits, canAccessUnit } from '../middleware/authorization';
 
 const router = Router();
 
-// GET /api/units - Get all units as a tree
-router.get('/', async (req: Request, res: Response) => {
+// GET /api/units - Get all units as a tree (filtered by user permissions)
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const units = await Unit.find().sort({ parent_unit_id: 1, created_at: 1 }).lean();
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let units: any[];
+    if (user.role === 'admin') {
+      // Admin can see all units
+      units = await Unit.find().sort({ parent_unit_id: 1, created_at: 1 }).lean();
+    } else {
+      // User can only see their accessible units
+      let accessibleUnitIds = await getAccessibleUnits(req.user.id);
+      console.log(`[Units] Raw accessibleUnitIds:`, accessibleUnitIds);
+      // Ensure all IDs are ObjectIds
+      accessibleUnitIds = accessibleUnitIds.map(id => new mongoose.Types.ObjectId(id.toString()));
+      console.log(`[Units] Converted IDs:`, accessibleUnitIds.map((id: any) => id.toString()));
+      units = await Unit.find({ _id: { $in: accessibleUnitIds } }).sort({ parent_unit_id: 1, created_at: 1 }).lean();
+      console.log(`[Units] Query returned ${units.length} units`);
+    }
+
     const storageLocations = await StorageLocation.find().lean();
 
     const buildTree = (parentId: string | null = null): any[] => {
-      return (units as any[])
+      const result = (units as any[])
         .filter((u) => {
           // Handle both null and undefined parent_unit_id
           if (!u.parent_unit_id && !parentId) return true;
@@ -31,6 +56,8 @@ router.get('/', async (req: Request, res: Response) => {
             storage_location: storage,
           };
         });
+      console.log(`[Units Tree] parentId=${parentId}, found ${result.length} units`);
+      return result;
     };
 
     const tree = buildTree();
@@ -42,7 +69,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/units/:id - Get specific unit with full hierarchy info
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const unit = await Unit.findById(req.params.id).lean();
     if (!unit) return res.status(404).json({ error: 'Unit not found' });
@@ -68,9 +95,18 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/units - Create new unit
-router.post('/', async (req: Request, res: Response) => {
+// POST /api/units - Create new unit (admin only)
+router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can create units' });
+    }
+
     const { name, type = 'battalion', parent_unit_id = null, description = null } = req.body;
 
     if (!name?.trim()) {
@@ -104,8 +140,26 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /api/units/:id - Update unit
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // For non-admin users, they can only edit their assigned units (not children)
+    if (user.role !== 'admin') {
+      const permissions = await import('../db/mongo').then(m => m.UserFrameworkPermission);
+      const hasDirectAccess = await permissions.findOne({ user_id: req.user.id, unit_id: req.params.id });
+      if (!hasDirectAccess) {
+        return res.status(403).json({ error: 'You can only edit your assigned frameworks' });
+      }
+    }
+
     const { name, type, description, parent_unit_id } = req.body;
 
     const unit = await Unit.findById(req.params.id);
@@ -134,9 +188,18 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/units/:id - Delete unit
-router.delete('/:id', async (req: Request, res: Response) => {
+// DELETE /api/units/:id - Delete unit (admin only)
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete units' });
+    }
+
     const unit = await Unit.findById(req.params.id);
     if (!unit) return res.status(404).json({ error: 'Unit not found' });
 
@@ -149,7 +212,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/units/:id/storage - Add storage location to unit
-router.post('/:id/storage', async (req: Request, res: Response) => {
+router.post('/:id/storage', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { location_type, location_details = '' } = req.body;
 
@@ -184,7 +247,7 @@ router.post('/:id/storage', async (req: Request, res: Response) => {
 });
 
 // GET /api/units/:id/storage - Get storage location for unit
-router.get('/:id/storage', async (req: Request, res: Response) => {
+router.get('/:id/storage', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const storage = await StorageLocation.findOne({ unit_id: req.params.id }).lean();
     if (!storage) return res.status(404).json({ error: 'Storage location not found' });
@@ -196,7 +259,7 @@ router.get('/:id/storage', async (req: Request, res: Response) => {
 });
 
 // GET /api/units/:id/bunkers - Get bunkers linked to this unit
-router.get('/:id/bunkers', async (req: Request, res: Response) => {
+router.get('/:id/bunkers', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const bunkers = await Bunker.find({ unit_id: req.params.id }).sort({ name: 1 }).lean();
     
@@ -224,7 +287,7 @@ router.get('/:id/bunkers', async (req: Request, res: Response) => {
 });
 
 // POST /api/units/:id/ensure-bunker - Get or create a bunker for this storage location unit
-router.post('/:id/ensure-bunker', async (req: Request, res: Response) => {
+router.post('/:id/ensure-bunker', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const unit = await Unit.findById(req.params.id);
     if (!unit) return res.status(404).json({ error: 'Unit not found' });
@@ -266,7 +329,7 @@ const getAllUnitIds = async (unitId: string): Promise<string[]> => {
 };
 
 // GET /api/units/:id/inventory-summary
-router.get('/:id/inventory-summary', async (req: Request, res: Response) => {
+router.get('/:id/inventory-summary', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const unit = await Unit.findById(req.params.id);
     if (!unit) return res.status(404).json({ error: 'Unit not found' });
@@ -325,7 +388,7 @@ router.get('/:id/inventory-summary', async (req: Request, res: Response) => {
 });
 
 // GET /api/units/:id/gaps
-router.get('/:id/gaps', async (req: Request, res: Response) => {
+router.get('/:id/gaps', checkUnitAccess, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const unit = await Unit.findById(req.params.id);
     if (!unit) return res.status(404).json({ error: 'Unit not found' });
