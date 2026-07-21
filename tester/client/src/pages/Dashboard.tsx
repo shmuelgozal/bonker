@@ -133,6 +133,12 @@ export default function Dashboard() {
     ? cards.filter(c => c.bunker.unit_id && unitIds.includes(c.bunker.unit_id))
     : cards;
 
+  // Reuse selected framework scope for shatzal analytics by bunker membership.
+  const filteredBunkerIds = new Set(filteredCards.map((c) => c.bunker.id));
+  const shatzalUsageInScope = selectedUnitId
+    ? shatzalUsage.filter((item) => filteredBunkerIds.has(item.bunker_id))
+    : shatzalUsage;
+
   // Flatten units hierarchy for display in dropdown (only battalion and company levels)
   const flattenedUnits = (unitsList: UnitWithChildren[], level = 0): Array<{ id: string; name: string; type: string; level: number }> => {
     const result: Array<{ id: string; name: string; type: string; level: number }> = [];
@@ -150,7 +156,7 @@ export default function Dashboard() {
 
   const allUnits = flattenedUnits(units);
   const shatzalAmmoOptions = Array.from(
-    shatzalUsage.reduce((map, item) => {
+    shatzalUsageInScope.reduce((map, item) => {
       if (!map.has(item.ammo_type_id)) {
         map.set(item.ammo_type_id, {
           id: item.ammo_type_id,
@@ -169,7 +175,7 @@ export default function Dashboard() {
   const rangeStart = normalizedFromDate && normalizedToDate && normalizedFromDate > normalizedToDate ? normalizedToDate : normalizedFromDate;
   const rangeEnd = normalizedFromDate && normalizedToDate && normalizedFromDate > normalizedToDate ? normalizedFromDate : normalizedToDate;
 
-  const filteredShatzalUsage = shatzalUsage.filter((item) => {
+  const filteredShatzalUsage = shatzalUsageInScope.filter((item) => {
     const usedAt = new Date(item.used_at);
     const matchesAmmo = shatzalAmmoTypeId === 'all' || item.ammo_type_id === shatzalAmmoTypeId;
     const matchesFrom = !rangeStart || usedAt >= rangeStart;
@@ -530,22 +536,22 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4">
-          <div className="card p-3 bg-slate-50">
-            <p className="text-xs text-gray-500 mb-1">שימוש כולל</p>
-            <p className="text-2xl font-bold text-gray-900">{totalUsageQty}</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
+          <div className="card p-2.5 sm:p-3 bg-slate-50">
+            <p className="text-[11px] sm:text-xs text-gray-500 mb-1">שימוש כולל</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalUsageQty}</p>
           </div>
-          <div className="card p-3 bg-slate-50">
-            <p className="text-xs text-gray-500 mb-1">אירועים</p>
-            <p className="text-2xl font-bold text-gray-900">{totalUsageEvents}</p>
+          <div className="card p-2.5 sm:p-3 bg-slate-50">
+            <p className="text-[11px] sm:text-xs text-gray-500 mb-1">אירועים</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalUsageEvents}</p>
           </div>
-          <div className="card p-3 bg-slate-50">
-            <p className="text-xs text-gray-500 mb-1">שיא יומי</p>
-            <p className="text-2xl font-bold text-gray-900">{peakDay?.total_qty ?? 0}</p>
+          <div className="card p-2.5 sm:p-3 bg-slate-50">
+            <p className="text-[11px] sm:text-xs text-gray-500 mb-1">שיא יומי</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">{peakDay?.total_qty ?? 0}</p>
           </div>
-          <div className="card p-3 bg-slate-50">
-            <p className="text-xs text-gray-500 mb-1">יום שיא</p>
-            <p className="text-sm font-semibold text-gray-900 mt-1">{peakDay?.label || 'אין נתון'}</p>
+          <div className="card p-2.5 sm:p-3 bg-slate-50">
+            <p className="text-[11px] sm:text-xs text-gray-500 mb-1">יום שיא</p>
+            <p className="text-xs sm:text-sm font-semibold text-gray-900 mt-1">{peakDay?.label || 'אין נתון'}</p>
           </div>
         </div>
 
@@ -689,25 +695,6 @@ export default function Dashboard() {
               </svg>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-              {filteredShatzalUsage.slice(0, 8).map((item) => (
-                <div key={item.id} className="px-4 py-3 border-b last:border-b-0 border-gray-100">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div>
-                      <p className="font-medium text-gray-900">{item.ammo_name || 'תחמושת'}</p>
-                      <p className="text-xs text-gray-500">{item.representative} · {new Date(item.used_at).toLocaleDateString('he-IL')}</p>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-amber-700">-{item.quantity_used}</p>
-                      <p className="text-xs text-gray-500">{item.bunker_name || 'בונקר'} · {item.bunker_type}</p>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-gray-400">
-                    {new Date(item.used_at).toLocaleString('he-IL')} · {item.notes || 'ללא הערות'}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
