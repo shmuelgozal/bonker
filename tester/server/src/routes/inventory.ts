@@ -158,15 +158,15 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 
     let delta = Number(quantity_delta || 0);
 
-    if (!Number.isFinite(delta) || delta === 0) {
-      return res.status(400).json({ error: 'יש להזין כמות' });
-    }
-
-    if (entry_type === 'shatzal') {
-      delta = -Math.abs(delta);
-    }
-
     if (ammoType.tracking_type === 'qty') {
+      if (!Number.isFinite(delta) || delta === 0) {
+        return res.status(400).json({ error: 'יש להזין כמות' });
+      }
+
+      if (entry_type === 'shatzal') {
+        delta = -Math.abs(delta);
+      }
+
       if (entry_type === 'shatzal' && delta >= 0) {
         return res.status(400).json({ error: 'שצ"ל חייב להפחית מלאי' });
       }
@@ -229,6 +229,10 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       if (entry_type === 'shatzal') {
         delta = -Math.abs(delta);
       }
+    }
+
+    if (!Number.isFinite(delta) || delta === 0) {
+      return res.status(400).json({ error: 'יש להזין כמות' });
     }
 
     // Create inventory entry
