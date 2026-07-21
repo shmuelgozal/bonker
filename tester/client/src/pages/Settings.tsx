@@ -140,8 +140,9 @@ export default function Settings() {
         toast.success('הטמפלייט עודכן בהצלחה');
       }
       setEditingId(null);
-    } catch (err) {
-      toast.error('שגיאה בשמירת הטמפלייט');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'שגיאה בשמירת הטמפלייט';
+      toast.error(errorMessage);
     }
   };
 
