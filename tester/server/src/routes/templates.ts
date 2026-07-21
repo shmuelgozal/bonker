@@ -3,18 +3,31 @@ import { StandardTemplate } from '../db/mongo';
 
 const router = Router();
 
-const normalizeItems = (items: unknown): Record<string, number> => {
+const DOT_REPLACEMENT = '\uFF0E';
+const DOLLAR_REPLACEMENT = '\uFF04';
+
+const encodeMongoKey = (key: string): string =>
+  key.replace(/\./g, DOT_REPLACEMENT).replace(/\$/g, DOLLAR_REPLACEMENT);
+
+const decodeMongoKey = (key: string): string =>
+  key.replace(new RegExp(DOT_REPLACEMENT, 'g'), '.').replace(new RegExp(DOLLAR_REPLACEMENT, 'g'), '$');
+
+const normalizeItems = (items: unknown, encodeKeys = false): Record<string, number> => {
   if (!items) return {};
+
+  const transformKey = (key: string) => (encodeKeys ? encodeMongoKey(key) : decodeMongoKey(key));
 
   if (items instanceof Map) {
     return Object.fromEntries(
-      Array.from(items.entries()).filter(([, v]) => Number.isFinite(Number(v)) && Number(v) >= 0)
+      Array.from(items.entries())
+        .map(([k, v]) => [transformKey(String(k).trim()), Number(v)] as const)
+        .filter(([k, v]) => k.length > 0 && Number.isFinite(v) && v >= 0)
     );
   }
 
   if (typeof items === 'object' && !Array.isArray(items)) {
     const entries = Object.entries(items as Record<string, unknown>)
-      .map(([k, v]) => [String(k).trim(), Number(v)] as const)
+      .map(([k, v]) => [transformKey(String(k).trim()), Number(v)] as const)
       .filter(([k, v]) => k.length > 0 && Number.isFinite(v) && v >= 0);
     return Object.fromEntries(entries);
   }
@@ -29,7 +42,7 @@ router.get('/', async (_req: Request, res: Response) => {
     const result = (templates as any[]).map(t => ({
       id: t._id,
       name: t.name,
-      items: normalizeItems(t.items),
+      items: normalizeItems(t.items, false),
       created_at: t.created_at,
       updated_at: t.updated_at,
     }));
@@ -47,7 +60,7 @@ router.post('/', async (req: Request, res: Response) => {
     const normalizedName = name?.trim();
     if (!normalizedName) return res.status(400).json({ error: 'name is required' });
 
-    const normalizedItems = normalizeItems(items);
+    const normalizedItems = normalizeItems(items, true);
 
     const existing = await StandardTemplate.findOne({ name: normalizedName });
     if (existing) return res.status(409).json({ error: 'Template with this name already exists' });
@@ -56,7 +69,7 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({
       id: template._id,
       name: template.name,
-      items: normalizeItems(template.items),
+      items: normalizeItems(template.items, false),
       created_at: template.created_at,
       updated_at: template.updated_at,
     });
@@ -91,7 +104,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     if (items !== undefined) {
-      updateDoc.items = normalizeItems(items);
+      updateDoc.items = normalizeItems(items, true);
     }
 
     if (Object.keys(updateDoc).length === 1) {
@@ -109,7 +122,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     res.json({
       id: template._id,
       name: template.name,
-      items: normalizeItems(template.items),
+      items: normalizeItems(template.items, false),
       created_at: template.created_at,
       updated_at: template.updated_at,
     });
