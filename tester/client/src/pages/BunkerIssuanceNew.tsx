@@ -66,11 +66,16 @@ export default function BunkerIssuanceNew() {
     let available_serials: InventorySerial[] = [];
     let batch_details: BatchDetail[] = [];
 
-    if (trackingType === 'batch') {
-      available_batches = await getBatches(bunkerId!, ammoTypeId);
-      batch_details = available_batches.map(b => ({ batch_number: b.batch_number, available: b.quantity, quantity: 0 }));
-    } else if (trackingType === 'serial') {
-      available_serials = await getSerials(bunkerId!, ammoTypeId, 'in_stock');
+    try {
+      if (trackingType === 'batch') {
+        available_batches = await getBatches(bunkerId!, ammoTypeId);
+        batch_details = available_batches.map(b => ({ batch_number: b.batch_number, available: b.quantity, quantity: 0 }));
+      } else if (trackingType === 'serial') {
+        available_serials = await getSerials(bunkerId!, ammoTypeId, 'in_stock');
+      }
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'שגיאה בטעינת נתוני מלאי לפריט זה';
+      toast.error(errorMessage);
     }
 
     setRows(prev => prev.map((r, i) => i === rowIdx ? {

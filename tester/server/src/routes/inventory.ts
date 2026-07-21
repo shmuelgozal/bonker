@@ -60,6 +60,55 @@ router.get('/history', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/bunkers/:id/inventory/:ammoTypeId/batches — batch breakdown for one ammo type
+router.get('/:ammoTypeId/batches', async (req: Request, res: Response) => {
+  try {
+    const rows = await InventoryBatch.find({
+      bunker_id: req.params.id,
+      ammo_type_id: req.params.ammoTypeId,
+    }).sort({ batch_number: 1 }).lean();
+
+    res.json((rows as any[]).map(r => ({
+      id: r._id,
+      bunker_id: r.bunker_id,
+      ammo_type_id: r.ammo_type_id,
+      batch_number: r.batch_number,
+      quantity: r.quantity,
+      created_at: r.created_at,
+    })));
+  } catch (error) {
+    console.error('Error fetching inventory batches:', error);
+    res.status(500).json({ error: 'Failed to fetch inventory batches' });
+  }
+});
+
+// GET /api/bunkers/:id/inventory/:ammoTypeId/serials — serial numbers for one ammo type
+router.get('/:ammoTypeId/serials', async (req: Request, res: Response) => {
+  try {
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const filter: Record<string, unknown> = {
+      bunker_id: req.params.id,
+      ammo_type_id: req.params.ammoTypeId,
+    };
+    if (status) filter.status = status;
+
+    const rows = await InventorySerial.find(filter).sort({ serial_number: 1 }).lean();
+
+    res.json((rows as any[]).map(r => ({
+      id: r._id,
+      bunker_id: r.bunker_id,
+      ammo_type_id: r.ammo_type_id,
+      serial_number: r.serial_number,
+      status: r.status,
+      issuance_id: r.issuance_id,
+      created_at: r.created_at,
+    })));
+  } catch (error) {
+    console.error('Error fetching inventory serials:', error);
+    res.status(500).json({ error: 'Failed to fetch inventory serials' });
+  }
+});
+
 // POST /api/bunkers/:id/inventory — add entry, update live stock
 router.post('/', async (req: Request, res: Response) => {
   try {
