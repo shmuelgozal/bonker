@@ -66,8 +66,9 @@ export default function BunkerInventoryAdd() {
       }
       toast.success('מלאי עודכן בהצלחה');
       navigate(`/bunkers/${bunkerId!}`);
-    } catch {
-      toast.error('שגיאה בעדכון המלאי');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.error || 'שגיאה בעדכון המלאי';
+      toast.error(errorMessage);
     } finally { setSaving(false); }
   };
 

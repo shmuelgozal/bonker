@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { Inventory, InventoryEntry, AmmoType, Bunker } from '../db/mongo';
+import { Inventory, InventoryEntry, AmmoType, Bunker, InventoryBatch, InventorySerial } from '../db/mongo';
 
 const router = Router({ mergeParams: true });
 
@@ -68,11 +68,15 @@ router.post('/', async (req: Request, res: Response) => {
       quantity_delta = 0,
       entry_type = 'add',
       notes,
+      batches,
+      serial_numbers,
     } = req.body as {
       ammo_type_id: string;
       quantity_delta?: number;
       entry_type?: string;
       notes?: string;
+      batches?: Array<{ batch_number: string; quantity: number }>;
+      serial_numbers?: string[];
     };
 
     if (!ammo_type_id) return res.status(400).json({ error: 'ammo_type_id הוא שדה חובה' });
@@ -83,13 +87,72 @@ router.post('/', async (req: Request, res: Response) => {
     const ammoType = await AmmoType.findById(ammo_type_id);
     if (!ammoType) return res.status(400).json({ error: 'סוג תחמושת לא נמצא' });
 
-    if (quantity_delta === 0) return res.status(400).json({ error: 'יש להזין כמות' });
+    let delta = Number(quantity_delta || 0);
+
+    if (ammoType.tracking_type === 'qty') {
+      if (!Number.isFinite(delta) || delta === 0) {
+        return res.status(400).json({ error: 'יש להזין כמות' });
+      }
+    }
+
+    if (ammoType.tracking_type === 'batch') {
+      const validBatches = (batches || [])
+        .map(b => ({ batch_number: (b.batch_number || '').trim(), quantity: Number(b.quantity || 0) }))
+        .filter(b => b.batch_number && b.quantity > 0);
+
+      if (!validBatches.length) {
+        return res.status(400).json({ error: 'הזן לפחות סדרה אחת עם כמות' });
+      }
+
+      for (const row of validBatches) {
+        const existingBatch = await InventoryBatch.findOne({
+          bunker_id: req.params.id,
+          ammo_type_id,
+          batch_number: row.batch_number,
+        });
+
+        if (existingBatch) {
+          await InventoryBatch.findByIdAndUpdate(existingBatch._id, {
+            quantity: existingBatch.quantity + row.quantity,
+          });
+        } else {
+          await InventoryBatch.create({
+            bunker_id: req.params.id,
+            ammo_type_id,
+            batch_number: row.batch_number,
+            quantity: row.quantity,
+            created_at: new Date(),
+          });
+        }
+      }
+
+      delta = validBatches.reduce((sum, b) => sum + b.quantity, 0);
+    }
+
+    if (ammoType.tracking_type === 'serial') {
+      const serials = Array.from(new Set((serial_numbers || []).map(s => (s || '').trim()).filter(Boolean)));
+      if (!serials.length) {
+        return res.status(400).json({ error: 'הזן לפחות מספר סידורי אחד' });
+      }
+
+      for (const serial of serials) {
+        await InventorySerial.create({
+          bunker_id: req.params.id,
+          ammo_type_id,
+          serial_number: serial,
+          status: 'in_stock',
+          created_at: new Date(),
+        });
+      }
+
+      delta = serials.length;
+    }
 
     // Create inventory entry
     await InventoryEntry.create({
       bunker_id: req.params.id,
       ammo_type_id,
-      quantity_delta,
+      quantity_delta: delta,
       entry_type,
       notes: notes || undefined,
       created_at: new Date(),
@@ -99,21 +162,24 @@ router.post('/', async (req: Request, res: Response) => {
     const existing = await Inventory.findOne({ bunker_id: req.params.id, ammo_type_id });
     if (existing) {
       await Inventory.findByIdAndUpdate(existing._id, {
-        quantity: Math.max(0, existing.quantity + quantity_delta),
+        quantity: Math.max(0, existing.quantity + delta),
         updated_at: new Date(),
       });
     } else {
       await Inventory.create({
         bunker_id: req.params.id,
         ammo_type_id,
-        quantity: Math.max(0, quantity_delta),
+        quantity: Math.max(0, delta),
         updated_at: new Date(),
       });
     }
 
     const updated = await Inventory.findOne({ bunker_id: req.params.id, ammo_type_id }).lean();
     res.status(201).json(updated);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: 'קיים כבר מספר סידורי/סדרה זהה בבונקר' });
+    }
     console.error('Error updating inventory:', error);
     res.status(500).json({ error: 'Failed to update inventory' });
   }
