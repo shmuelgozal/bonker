@@ -4,6 +4,14 @@ import upload from '../middleware/upload';
 
 const router = Router({ mergeParams: true });
 
+// Helper to build absolute image URL
+const getImageUrl = (req: Request, imagePath: string | undefined): string | undefined => {
+  if (!imagePath) return undefined;
+  // Use BACKEND_URL if available, otherwise construct from request
+  const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  return imagePath.startsWith('http') ? imagePath : `${baseUrl}${imagePath}`;
+};
+
 // GET /api/bunkers/:id/issuances
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -24,7 +32,7 @@ router.get('/', async (req: Request, res: Response) => {
           recipient_id: iss.recipient_id,
           unit_name: iss.unit_name,
           issue_date: iss.issue_date,
-          form_image_path: iss.form_image_path,
+          form_image_path: getImageUrl(req, iss.form_image_path),
           notes: iss.notes,
           created_at: iss.created_at,
           item_count: itemCount,
@@ -223,7 +231,7 @@ router.get('/:issuanceId', async (req: Request, res: Response) => {
       recipient_id: issuance.recipient_id,
       unit_name: issuance.unit_name,
       issue_date: issuance.issue_date,
-      form_image_path: issuance.form_image_path,
+      form_image_path: getImageUrl(req, issuance.form_image_path),
       notes: issuance.notes,
       created_at: issuance.created_at,
       items: itemsWithAmmo.sort((a, b) => {
@@ -266,7 +274,10 @@ router.put('/:issuanceId', upload.single('form_image'), async (req: Request, res
       form_image_path: imagePath,
     }, { new: true }).lean();
 
-    res.json(updated);
+    res.json({
+      ...(updated as any),
+      form_image_path: getImageUrl(req, updated?.form_image_path),
+    });
   } catch (error) {
     console.error('Error updating issuance:', error);
     res.status(500).json({ error: 'Failed to update issuance' });

@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { getAmmoTypes, getStandard, updateStandard, getGaps, getBunker } from '../api/client';
+import { getAmmoTypes, getStandard, updateStandard, getGaps, getBunker, getTemplates } from '../api/client';
 import type { AmmoType, GapItem, Bunker } from '../types';
-import { ArrowRight, Save, AlertTriangle, CheckCircle, ShieldCheck, Download, ClipboardList } from 'lucide-react';
-import { getTemplates } from '../utils/standardTemplates';
 
 export default function BunkerStandard() {
   const { id } = useParams<{ id: string }>();
@@ -19,14 +17,24 @@ export default function BunkerStandard() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [availableTemplates, setAvailableTemplates] = useState<Array<{ id: string; name: string; items: Record<string, number> }>>([]);
 
-  const applyTemplate = (templateName: string) => {
-    const tpl = getTemplates()[templateName];
+  const loadTemplates = async () => {
+    try {
+      const tmpls = await getTemplates();
+      setAvailableTemplates(tmpls.map(t => ({ id: t.id, name: t.name, items: t.items })));
+    } catch (err) {
+      console.error('Failed to load templates:', err);
+    }
+  };
+
+  const applyTemplate = (templateId: string) => {
+    const tpl = availableTemplates.find(t => t.id === templateId);
     if (!tpl) return;
     const updated: Record<string, string> = { ...standardValues };
     ammoTypes.forEach(t => {
-      const key = Object.keys(tpl).find(k => k.toLowerCase() === t.name.toLowerCase());
-      if (key !== undefined) updated[t.id] = String(tpl[key]);
+      const key = Object.keys(tpl.items).find(k => k.toLowerCase() === t.name.toLowerCase());
+      if (key !== undefined) updated[t.id] = String(tpl.items[key]);
     });
     setStandardValues(updated);
   };
@@ -52,7 +60,7 @@ export default function BunkerStandard() {
     }
   };
 
-  useEffect(() => { loadAll(); }, [bunkerId]);
+  useEffect(() => { loadAll(); loadTemplates(); }, [bunkerId]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -267,8 +275,8 @@ export default function BunkerStandard() {
               onChange={e => setSelectedTemplate(e.target.value)}
             >
               <option value="">— בחר טמפלייט —</option>
-              {Object.keys(getTemplates()).map(name => (
-                <option key={name} value={name}>{name}</option>
+              {availableTemplates.map(name => (
+                <option key={name.id} value={name.id}>{name.name}</option>
               ))}
             </select>
             <button

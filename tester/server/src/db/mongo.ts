@@ -264,6 +264,24 @@ InventoryCountItemSchema.index({ count_id: 1, ammo_type_id: 1 }, { unique: true 
 
 export const InventoryCountItem = mongoose.model<IInventoryCountItem>('InventoryCountItem', InventoryCountItemSchema);
 
+// Standard Template (for בונקר תו תקן defaults)
+export interface IStandardTemplate extends Document {
+  _id: mongoose.Types.ObjectId;
+  name: string;
+  items: Record<string, number>; // { ammoName: qty, ... }
+  created_at: Date;
+  updated_at: Date;
+}
+
+const StandardTemplateSchema = new Schema<IStandardTemplate>({
+  name: { type: String, required: true, unique: true },
+  items: { type: Map, of: Number, default: new Map() },
+  created_at: { type: Date, default: () => new Date() },
+  updated_at: { type: Date, default: () => new Date() },
+});
+
+export const StandardTemplate = mongoose.model<IStandardTemplate>('StandardTemplate', StandardTemplateSchema);
+
 // Connect to MongoDB
 export async function connectDB() {
   const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/bonker';

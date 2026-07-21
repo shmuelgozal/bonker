@@ -9,6 +9,7 @@ import countsRouter from './routes/counts';
 import issuancesRouter from './routes/issuances';
 import standardsRouter from './routes/standards';
 import unitsRouter from './routes/units';
+import templatesRouter from './routes/templates';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +54,7 @@ async function startServer() {
     app.use('/api/bunkers/:id/counts', countsRouter);
     app.use('/api/bunkers/:id/issuances', issuancesRouter);
     app.use('/api/bunkers/:id/standard', standardsRouter);
+    app.use('/api/templates', templatesRouter);
 
     // Health check
     app.get('/api/health', (_req, res) => {

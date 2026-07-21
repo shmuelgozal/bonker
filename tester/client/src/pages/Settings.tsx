@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { getAmmoTypes } from '../api/client';
+import { getAmmoTypes, getTemplates, createTemplate, updateTemplate, deleteTemplate } from '../api/client';
 import type { AmmoType } from '../types';
-import {
-  getTemplates, saveTemplates, DEFAULT_TEMPLATES, type TemplateMap,
-} from '../utils/standardTemplates';
 import { Settings as SettingsIcon, Plus, Pencil, Trash2, Save, X, RefreshCw, ClipboardList } from 'lucide-react';
 
 // ─── Template editor (inline) ────────────────────────────────────────────────
@@ -111,43 +108,74 @@ function TemplateEditor({ name: initName, items: initItems, ammoTypes, onSave, o
 // ─── Main Settings page ───────────────────────────────────────────────────────
 export default function Settings() {
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
-  const [templates, setTemplates] = useState<TemplateMap>({});
+  const [templates, setTemplates] = useState<Array<{ id: string; name: string; items: Record<string, number> }>>([]);
   const [loading, setLoading] = useState(true);
-  const [editingName, setEditingName] = useState<string | null>(null); // null = not editing; '' = new
+  const [editingId, setEditingId] = useState<string | null>(null); // null = not editing; '' = new
   const [activeTab, setActiveTab] = useState<'templates'>('templates');
 
   useEffect(() => {
-    getAmmoTypes()
-      .then(types => { setAmmoTypes(types); setTemplates(getTemplates()); })
+    Promise.all([getAmmoTypes(), getTemplates()])
+      .then(([types, tmpls]) => {
+        setAmmoTypes(types);
+        setTemplates(tmpls.map(t => ({ id: t.id, name: t.name, items: t.items })));
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const persist = (updated: TemplateMap) => {
+  const persist = async (updated: Array<{ id: string; name: string; items: Record<string, number> }>) => {
     setTemplates(updated);
-    saveTemplates(updated);
   };
 
-  const handleSave = (oldName: string | '', newName: string, items: Record<string, number>) => {
-    const updated = { ...templates };
-    if (oldName !== '' && oldName !== newName) delete updated[oldName];
-    updated[newName] = items;
-    persist(updated);
-    setEditingName(null);
-    toast.success('הטמפלייט נשמר');
+  const handleSave = async (oldId: string | '', oldName: string, newName: string, items: Record<string, number>) => {
+    try {
+      if (oldId === '') {
+        // Creating new template
+        const created = await createTemplate({ name: newName, items });
+        setTemplates(prev => [...prev, { id: created.id, name: created.name, items: created.items }]);
+        toast.success('הטמפלייט נוצר בהצלחה');
+      } else {
+        // Updating existing template
+        const updated = await updateTemplate(oldId, { name: newName, items });
+        setTemplates(prev => prev.map(t => t.id === oldId ? { id: updated.id, name: updated.name, items: updated.items } : t));
+        toast.success('הטמפלייט עודכן בהצלחה');
+      }
+      setEditingId(null);
+    } catch (err) {
+      toast.error('שגיאה בשמירת הטמפלייט');
+    }
   };
 
-  const handleDelete = (name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (!confirm(`למחוק את הטמפלייט "${name}"?`)) return;
-    const updated = { ...templates };
-    delete updated[name];
-    persist(updated);
-    toast.success('הטמפלייט נמחק');
+    try {
+      await deleteTemplate(id);
+      setTemplates(prev => prev.filter(t => t.id !== id));
+      toast.success('הטמפלייט נמחק');
+    } catch {
+      toast.error('שגיאה במחיקת הטמפלייט');
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!confirm('לאפס את כל הטמפלייטים לברירת המחדל?')) return;
-    persist(structuredClone(DEFAULT_TEMPLATES));
-    toast.success('הטמפלייטים אופסו לברירת מחדל');
+    try {
+      // מחיקה של כל הטמפלייטים הקיימים
+      for (const t of templates) {
+        await deleteTemplate(t.id);
+      }
+      // הוספה של ברירות המחדל
+      const defaultTemplates = [
+        { name: 'רכב סי', items: { 'גומי': 40, 'תחמיש': 58, 'מטול לתאורה': 4, 'מטול גז': 28, 'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רימון עשן': 1, 'תופי': 1, 'רומה גומי': 1, 'רימון רסס': 8, 'לאו': 1 } },
+        { name: 'רכב חפ"ק', items: { 'גומי': 40, 'תחמיש': 58, 'מטול לתאורה': 4, 'מטול גז': 28, 'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רומה גומי': 1, 'רימון רסס': 8, 'לאו': 2 } },
+        { name: 'רכב כיתת כוננות', items: { 'גומי': 24, 'תחמיש': 58, 'מטול לתאורה': 10, 'מטול גז': 28, 'ספוג': 28, 'רימון הלם': 18, 'רימון גז': 8, 'רימון עשן': 3, 'תופי': 1, 'רומה גומי': 2, 'רימון רסס': 16, 'לאו': 2 } },
+        { name: 'פילבוקס', items: { 'גומי': 48, 'תחמיש': 116, 'מטול לתאורה': 20, 'מטול גז': 56, 'ספוג': 56, 'רימון הלם': 36, 'רימון גז': 16, 'רימון עשן': 3, 'תופי': 2, 'רומה גומי': 2 } },
+      ];
+      const created = await Promise.all(defaultTemplates.map(t => createTemplate(t)));
+      setTemplates(created.map(t => ({ id: t.id, name: t.name, items: t.items })));
+      toast.success('הטמפלייטים אופסו לברירת מחדל');
+    } catch {
+      toast.error('שגיאה באפסון הטמפלייטים');
+    }
   };
 
   if (loading) return (
@@ -193,7 +221,7 @@ export default function Settings() {
                 <RefreshCw size={14} /> ברירת מחדל
               </button>
               <button
-                onClick={() => setEditingName('')}
+                onClick={() => setEditingId('')}
                 className="btn-primary text-sm flex items-center gap-1.5"
               >
                 <Plus size={15} /> טמפלייט חדש
@@ -202,60 +230,60 @@ export default function Settings() {
           </div>
 
           {/* New template editor */}
-          {editingName === '' && (
+          {editingId === '' && (
             <div className="mb-4">
               <TemplateEditor
                 name=""
                 items={{}}
                 ammoTypes={ammoTypes}
                 isNew
-                onSave={(name, items) => handleSave('', name, items)}
-                onCancel={() => setEditingName(null)}
+                onSave={(name, items) => handleSave('', '', name, items)}
+                onCancel={() => setEditingId(null)}
               />
             </div>
           )}
 
           {/* Template list */}
-          {Object.keys(templates).length === 0 && editingName === null && (
+          {templates.length === 0 && editingId === null && (
             <div className="card p-12 text-center text-gray-400">
               <ClipboardList size={40} className="mx-auto mb-2 text-gray-300" />
               <p>אין טמפלייטים מוגדרים</p>
             </div>
           )}
 
-          {Object.entries(templates).map(([tplName, items]) => (
-            <div key={tplName} className="mb-4">
-              {editingName === tplName ? (
+          {templates.map(tpl => (
+            <div key={tpl.id} className="mb-4">
+              {editingId === tpl.id ? (
                 <TemplateEditor
-                  name={tplName}
-                  items={items}
+                  name={tpl.name}
+                  items={tpl.items}
                   ammoTypes={ammoTypes}
-                  onSave={(newName, newItems) => handleSave(tplName, newName, newItems)}
-                  onCancel={() => setEditingName(null)}
+                  onSave={(newName, newItems) => handleSave(tpl.id, tpl.name, newName, newItems)}
+                  onCancel={() => setEditingId(null)}
                 />
               ) : (
                 <div className="card p-4 flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-gray-800 flex items-center gap-2">
                       <ClipboardList size={16} className="text-blue-500" />
-                      {tplName}
+                      {tpl.name}
                     </div>
                     <div className="text-xs text-gray-400 mt-1">
-                      {Object.keys(items).length} פריטים ·{' '}
-                      {Object.entries(items).slice(0, 4).map(([n, q]) => `${n} ×${q}`).join(', ')}
-                      {Object.keys(items).length > 4 ? '...' : ''}
+                      {Object.keys(tpl.items).length} פריטים ·{' '}
+                      {Object.entries(tpl.items).slice(0, 4).map(([n, q]) => `${n} ×${q}`).join(', ')}
+                      {Object.keys(tpl.items).length > 4 ? '...' : ''}
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setEditingName(tplName)}
+                      onClick={() => setEditingId(tpl.id)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                       title="ערוך"
                     >
                       <Pencil size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(tplName)}
+                      onClick={() => handleDelete(tpl.id, tpl.name)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                       title="מחק"
                     >

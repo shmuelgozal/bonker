@@ -122,4 +122,22 @@ export const updateStandard = (bunkerId: string, items: Array<{ ammo_type_id: st
 export const getGaps = (bunkerId: string) =>
   api.get<GapsResponse>(`/bunkers/${bunkerId}/standard/gaps`).then(r => r.data);
 
+// Templates
+export interface StandardTemplateDto {
+  id: string;
+  name: string;
+  items: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getTemplates = () =>
+  api.get<StandardTemplateDto[]>('/templates').then(r => r.data);
+export const createTemplate = (data: { name: string; items: Record<string, number> }) =>
+  api.post<StandardTemplateDto>('/templates', data).then(r => r.data);
+export const updateTemplate = (id: string, data: { name?: string; items?: Record<string, number> }) =>
+  api.put<StandardTemplateDto>(`/templates/${id}`, data).then(r => r.data);
+export const deleteTemplate = (id: string) =>
+  api.delete<{ success: boolean }>(`/templates/${id}`).then(r => r.data);
+
 export default api;
