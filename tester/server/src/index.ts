@@ -1,6 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
 import { initDb } from './db/database-mongo';
 import bunkersRouter from './routes/bunkers';
 import ammoTypesRouter from './routes/ammoTypes';

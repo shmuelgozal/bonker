@@ -6,18 +6,26 @@ const router = Router();
 // GET /api/templates
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const templates = await StandardTemplate.find().sort({ name: 1 }).lean();
+    console.log('📋 Fetching templates...');
+    console.log('📋 StandardTemplate model:', StandardTemplate);
+    const templates = await StandardTemplate.find().sort({ name: 1 }).lean().exec();
+    console.log('📋 Found templates:', templates?.length || 0, templates);
+    if (!templates) {
+      return res.json([]);
+    }
     const result = (templates as any[]).map(t => ({
       id: t._id,
       name: t.name,
-      items: t.items ? Object.fromEntries(t.items) : {},
+      items: t.items || {},
       created_at: t.created_at,
       updated_at: t.updated_at,
     }));
+    console.log('📋 Mapped result:', result);
     res.json(result);
-  } catch (error) {
-    console.error('Error fetching templates:', error);
-    res.status(500).json({ error: 'Failed to fetch templates' });
+  } catch (error: any) {
+    console.error('❌ Error fetching templates:', error.message);
+    console.error('❌ Stack:', error.stack);
+    res.status(500).json({ error: `Failed to fetch templates: ${error.message}` });
   }
 });
 
