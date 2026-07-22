@@ -19,18 +19,21 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     let units: any[];
+    let nonAdminRootIds: string[] | null = null;
     if (user.role === 'admin') {
       // Admin can see all units
       units = await Unit.find().sort({ parent_unit_id: 1, created_at: 1 }).lean();
     } else {
-      // User can only see their accessible units
+      // User can only see their assigned framework and descendants
       let accessibleUnitIds = await getAccessibleUnits(req.user.id);
-      console.log(`[Units] Raw accessibleUnitIds:`, accessibleUnitIds);
       // Ensure all IDs are ObjectIds
       accessibleUnitIds = accessibleUnitIds.map(id => new mongoose.Types.ObjectId(id.toString()));
-      console.log(`[Units] Converted IDs:`, accessibleUnitIds.map((id: any) => id.toString()));
       units = await Unit.find({ _id: { $in: accessibleUnitIds } }).sort({ parent_unit_id: 1, created_at: 1 }).lean();
-      console.log(`[Units] Query returned ${units.length} units`);
+
+      const unitIdSet = new Set((units as any[]).map(u => String(u._id)));
+      nonAdminRootIds = (units as any[])
+        .filter((u) => !u.parent_unit_id || !unitIdSet.has(String(u.parent_unit_id)))
+        .map((u) => String(u._id));
     }
 
     const storageLocations = await StorageLocation.find().lean();
@@ -56,11 +59,27 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
             storage_location: storage,
           };
         });
-      console.log(`[Units Tree] parentId=${parentId}, found ${result.length} units`);
       return result;
     };
 
-    const tree = buildTree();
+    const tree = user.role === 'admin'
+      ? buildTree()
+      : (nonAdminRootIds || []).map(rootId => {
+          const unit = (units as any[]).find(u => String(u._id) === rootId);
+          if (!unit) return null;
+          const storage = storageLocations.find((s: any) => String(s.unit_id) === String(unit._id));
+          return {
+            id: unit._id,
+            name: unit.name,
+            type: unit.type,
+            parent_unit_id: unit.parent_unit_id,
+            description: unit.description,
+            created_at: unit.created_at,
+            children: buildTree(String(unit._id)),
+            storage_location: storage,
+          };
+        }).filter(Boolean);
+
     res.json(tree);
   } catch (error) {
     console.error('Error fetching units:', error);

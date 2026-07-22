@@ -38,7 +38,7 @@ export async function canAccessUnit(userId: string, unitId: string | mongoose.Ty
 }
 
 /**
- * Get all units accessible to a user (including children and ancestors)
+ * Get all units accessible to a user (assigned units + descendants only)
  */
 export async function getAccessibleUnits(userId: string): Promise<mongoose.Types.ObjectId[]> {
   const user = await User.findById(userId);
@@ -60,13 +60,6 @@ export async function getAccessibleUnits(userId: string): Promise<mongoose.Types
     const unitId = (unitDoc._id || unitDoc).toString();
     
     assignedUnitIds.add(unitId);
-
-    // Add all ancestor units (parents, grandparents, etc.)
-    let current = await Unit.findById(unitId);
-    while (current?.parent_unit_id) {
-      assignedUnitIds.add(current.parent_unit_id.toString());
-      current = await Unit.findById(current.parent_unit_id);
-    }
 
     // Add all child units
     async function addChildren(parentId: mongoose.Types.ObjectId) {
