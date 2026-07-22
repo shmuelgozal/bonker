@@ -130,10 +130,10 @@ export default function BunkerInventoryAdd() {
 
           {/* qty form */}
           {trackingType === 'qty' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label">סוג פעולה</label>
-                <div className="flex gap-3 mt-1">
+                <div className="flex flex-wrap gap-3 mt-1">
                   {(['add', 'adjust'] as const).map(v => (
                     <label key={v} className="flex items-center gap-2 cursor-pointer">
                       <input type="radio" value={v} checked={entryType === v} onChange={() => setEntryType(v)} />
@@ -141,7 +141,7 @@ export default function BunkerInventoryAdd() {
                     </label>
                   ))}
                   {canUseShatzal && (
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
                       <input type="radio" value="shatzal" checked={entryType === 'shatzal'} onChange={() => setEntryType('shatzal')} />
                       <span className="text-sm">שצ"ל</span>
                     </label>
