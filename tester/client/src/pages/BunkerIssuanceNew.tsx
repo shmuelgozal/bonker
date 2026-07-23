@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { getAmmoTypes, getInventory, createIssuance, getBunker, getBatches, getSerials, getBunkers } from '../api/client';
+import { getAmmoTypes, getInventory, createIssuance, getBunker, getBatches, getSerials, getBunkers, getSoldierBunkerRecords } from '../api/client';
 import type { AmmoType, InventoryItem, Bunker, TrackingType, InventoryBatch, InventorySerial } from '../types';
 import { ArrowRight, Upload, X, Plus, Trash2 } from 'lucide-react';
 import { TrackingBadge } from './AmmoTypes';
@@ -35,6 +35,7 @@ export default function BunkerIssuanceNew() {
   const [allBunkers, setAllBunkers] = useState<Bunker[]>([]);
   const [ammoTypes, setAmmoTypes] = useState<AmmoType[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [stockByAmmo, setStockByAmmo] = useState<Record<string, number>>({});
   const [recipientName, setRecipientName] = useState('');
   const [recipientId, setRecipientId] = useState('');
   const [unitName, setUnitName] = useState('');
@@ -46,21 +47,53 @@ export default function BunkerIssuanceNew() {
   const [rows, setRows] = useState<IssuanceRow[]>([emptyRow()]);
   const [saving, setSaving] = useState(false);
 
+  const isSoldierSource = (bunker?.bunker_type || 'bunker') === 'soldiers';
+
   useEffect(() => {
-    if (bunkerId) {
-      Promise.all([getBunker(bunkerId), getAmmoTypes(), getInventory(bunkerId), getBunkers()]).then(([b, types, inv, bunkers]) => {
-        if ((b.bunker_type || 'bunker') !== 'bunker') {
-          toast.error('סוג בונקר זה לא מורשה להנפיק');
-          navigate(`/bunkers/${bunkerId}`);
-          return;
+    const load = async () => {
+      if (!bunkerId) return;
+      try {
+        const [b, types, bunkers] = await Promise.all([getBunker(bunkerId), getAmmoTypes(), getBunkers()]);
+        setBunker(b);
+        setAmmoTypes(types);
+        setAllBunkers(bunkers);
+
+        if ((b.bunker_type || 'bunker') === 'soldiers') {
+          const [inv, records] = await Promise.all([
+            getInventory(bunkerId),
+            getSoldierBunkerRecords(bunkerId),
+          ]);
+          setInventory(inv);
+
+          const stockMap = inv.reduce<Record<string, number>>((acc, row) => {
+            acc[row.ammo_type_id] = row.quantity;
+            return acc;
+          }, {});
+
+          records.forEach((rec) => {
+            stockMap[rec.ammo_type_id] = (stockMap[rec.ammo_type_id] || 0) + rec.quantity;
+          });
+
+          setStockByAmmo(stockMap);
+        } else {
+          const inv = await getInventory(bunkerId);
+          setInventory(inv);
+
+          const stockMap = inv.reduce<Record<string, number>>((acc, row) => {
+            acc[row.ammo_type_id] = row.quantity;
+            return acc;
+          }, {});
+          setStockByAmmo(stockMap);
         }
-        setBunker(b); setAmmoTypes(types); setInventory(inv); setAllBunkers(bunkers);
-      });
-    }
+      } catch {
+        toast.error('שגיאה בטעינת נתוני ההנפקה');
+      }
+    };
+
+    load();
   }, [bunkerId, navigate]);
 
-  const stockOf = (ammoTypeId: string) =>
-    inventory.find(i => i.ammo_type_id === ammoTypeId)?.quantity ?? 0;
+  const stockOf = (ammoTypeId: string) => stockByAmmo[ammoTypeId] ?? 0;
 
   const handleTypeSelect = async (rowIdx: number, ammoTypeIdStr: string) => {
     const ammoTypeId = ammoTypeIdStr;
@@ -184,6 +217,12 @@ export default function BunkerIssuanceNew() {
       </div>
 
       <h1 className="text-xl font-bold text-gray-900 mb-5">הנפקת תחמושת / ציוד</h1>
+
+      {isSoldierSource && (
+        <div className="card p-4 mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          בבונקר חיילים ניתן כעת להנפיק גם פריטים מנוהלי סדרות ומספרים סידוריים.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Recipient */}

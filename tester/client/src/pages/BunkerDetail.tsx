@@ -167,7 +167,7 @@ export default function BunkerDetail() {
   };
 
   const isSoldierBunker = (bunker.bunker_type || 'bunker') === 'soldiers';
-  const canIssue = (bunker.bunker_type || 'bunker') === 'bunker';
+  const canIssue = true;
 
   const tabs: Array<{ id: TabId; label: string; icon: React.ReactNode }> = isSoldierBunker
     ? [

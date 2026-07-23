@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { getBunkers, createBunker, updateBunker, deleteBunker } from '../api/client';
-import type { Bunker } from '../types';
+import { getBunkers, getUnits, createBunker, updateBunker, deleteBunker } from '../api/client';
+import type { Bunker, UnitWithChildren } from '../types';
 import { Plus, Pencil, Trash2, MapPin, ChevronLeft, Network, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 
 type SortKey = 'name' | 'bunker_type' | 'unit_name' | 'location' | 'description' | 'created_at';
@@ -28,6 +28,7 @@ const emptyForm: BunkerForm = { name: '', bunker_type: 'bunker', location: '', d
 
 export default function BunkersList() {
   const [bunkers, setBunkers] = useState<Bunker[]>([]);
+  const [units, setUnits] = useState<UnitWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export default function BunkersList() {
   const [saving, setSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [selectedCompanyId, setSelectedCompanyId] = useState('all');
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -59,13 +61,57 @@ export default function BunkersList() {
 
   const load = async () => {
     try {
-      setBunkers(await getBunkers());
+      const [bunkersData, unitsData] = await Promise.all([getBunkers(), getUnits()]);
+      setBunkers(bunkersData);
+      setUnits(unitsData);
+    } catch {
+      toast.error('שגיאה בטעינת נתוני בונקרים');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { load(); }, []);
+
+  const frameworkData = useMemo(() => {
+    const companies: Array<{ id: string; name: string }> = [];
+    const unitCompanyById: Record<string, string | null> = {};
+
+    const walk = (nodes: UnitWithChildren[], currentCompanyId: string | null) => {
+      for (const unit of nodes) {
+        let nextCompanyId = currentCompanyId;
+
+        if (unit.type === 'company') {
+          companies.push({ id: unit.id, name: unit.name });
+          nextCompanyId = unit.id;
+        }
+
+        unitCompanyById[unit.id] = nextCompanyId;
+
+        if (unit.children?.length) {
+          walk(unit.children, nextCompanyId);
+        }
+      }
+    };
+
+    walk(units, null);
+
+    companies.sort((a, b) => a.name.localeCompare(b.name, 'he'));
+
+    return { companies, unitCompanyById };
+  }, [units]);
+
+  const filteredAndSortedBunkers = useMemo(() => {
+    const filtered = bunkers.filter((bunker) => {
+      if (selectedCompanyId === 'all') return true;
+
+      if (!bunker.unit_id) return false;
+
+      return frameworkData.unitCompanyById[bunker.unit_id] === selectedCompanyId;
+    });
+
+    return sortBunkers(filtered, sortKey, sortDir);
+  }, [bunkers, frameworkData.unitCompanyById, selectedCompanyId, sortDir, sortKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +172,35 @@ export default function BunkersList() {
           <Plus size={16} />
           בונקר חדש
         </button>
+      </div>
+
+      <div className="card p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+          <div>
+            <label className="label">סינון לפי פלוגה</label>
+            <select
+              className="input"
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+            >
+              <option value="all">כל הפלוגות</option>
+              {frameworkData.companies.map((company) => (
+                <option key={company.id} value={company.id}>{company.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <button
+              type="button"
+              className="btn-secondary w-full md:w-auto"
+              onClick={() => {
+                setSelectedCompanyId('all');
+              }}
+            >
+              איפוס סינון
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Form */}
@@ -201,6 +276,11 @@ export default function BunkersList() {
           <p className="text-lg">אין בונקרים עדיין</p>
           <p className="text-sm mt-1">לחץ "בונקר חדש" להוספה</p>
         </div>
+      ) : filteredAndSortedBunkers.length === 0 ? (
+        <div className="card p-12 text-center text-gray-500">
+          <p className="text-lg">לא נמצאו בונקרים לפי הסינון שנבחר</p>
+          <p className="text-sm mt-1">נסה לבחור גדוד/פלוגה אחרת או לאפס את הסינון</p>
+        </div>
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
@@ -217,7 +297,7 @@ export default function BunkersList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {sortBunkers(bunkers, sortKey, sortDir).map(b => (
+              {filteredAndSortedBunkers.map(b => (
                 <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                   <td className="table-td font-medium">
                     <Link to={`/bunkers/${b.id}`} className="text-blue-600 hover:underline flex items-center gap-1">

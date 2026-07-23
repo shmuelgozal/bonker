@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "fix:issuance-tracking": "ts-node src/fix-issuance-tracking.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",
